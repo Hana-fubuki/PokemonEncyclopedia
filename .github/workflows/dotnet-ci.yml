@@ -1,0 +1,183 @@
+name: .NET CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    name: Build, Test, and Coverage
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Run tests with code coverage
+      run: |
+        dotnet test \
+          --no-build \
+          --configuration Release \
+          --logger "trx;LogFileName=test-results.trx" \
+          --collect:"XPlat Code Coverage" \
+          --results-directory ./coverage \
+          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+    - name: Generate coverage report
+      uses: danielpalme/ReportGenerator-GitHub-Action@5.2.0
+      with:
+        reports: './coverage/**/coverage.cobertura.xml'
+        targetdir: './coverage-report'
+        reporttypes: 'HtmlInline;Badges'
+        verbosity: 'Info'
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        files: './coverage/**/coverage.cobertura.xml'
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+        verbose: true
+
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: './coverage/test-results.trx'
+        check_name: 'Unit Test Results'
+        comment_mode: 'always'
+
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = './coverage-report/summary.json';
+          
+          if (fs.existsSync(path)) {
+            const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const coverage = data.coverage || 'N/A';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📊 Code Coverage Report\n\n**Coverage:** ${coverage}%\n\nFull report available [here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`
+            });
+          }
+
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: ./coverage/test-results.trx
+        retention-days: 30
+
+    - name: Archive coverage report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: ./coverage-report/
+        retention-days: 30
+
+    - name: Check test results
+      if: failure()
+      run: |
+        echo "❌ Tests failed!"
+        exit 1
+
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality Checks
+    needs: build-and-test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Install dotnet tools
+      run: |
+        dotnet tool install -g dotnet-format
+
+    - name: Check code formatting
+      run: |
+        dotnet format --verify-no-changes --verbosity diagnostic || echo "Formatting issues detected"
+      continue-on-error: true
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Analyze with SonarAnalyzer
+      run: dotnet build /p:EnableNETAnalyzers=true /p:EnforceCodeStyleInBuild=true --no-restore
+      continue-on-error: true
+
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scanning
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+      continue-on-error: true
+
+    - name: Upload Trivy results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  summary:
+    runs-on: ubuntu-latest
+    name: CI Summary
+    needs: [build-and-test, code-quality, security-scan]
+    if: always()
+    
+    steps:
+    - name: Build summary
+      run: |
+        echo "## ✅ CI Pipeline Summary"
+        echo ""
+        echo "| Job | Status |"
+        echo "|-----|--------|"
+        echo "| Build & Test | ${{ needs.build-and-test.result }} |"
+        echo "| Code Quality | ${{ needs.code-quality.result }} |"
+        echo "| Security | ${{ needs.security-scan.result }} |"
+
+    - name: Fail if critical jobs failed
+      if: |
+        needs.build-and-test.result == 'failure'
+      run: |
+        echo "❌ Build and test job failed!"
+        exit 1
