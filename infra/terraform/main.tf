@@ -6,7 +6,7 @@ terraform {
       version = "~> 3.80.0"
     }
   }
-  
+
   # Uncomment and configure for remote state
   # backend "azurerm" {
   #   resource_group_name  = "terraform-state"
@@ -18,7 +18,7 @@ terraform {
 
 provider "azurerm" {
   features {}
-  
+
   # Configure with environment variables:
   # ARM_SUBSCRIPTION_ID
   # ARM_CLIENT_ID
@@ -179,7 +179,7 @@ resource "azurerm_application_insights" "ai" {
   application_type    = "web"
   workspace_id        = azurerm_log_analytics_workspace.logs.id
   retention_in_days   = 30
-  
+
   tags = local.tags
 }
 
@@ -193,7 +193,7 @@ resource "azurerm_redis_cache" "redis" {
   sku_name            = "Standard"
   enable_non_ssl_port = false
   minimum_tls_version = "1.2"
-  
+
   tags = local.tags
 }
 
@@ -220,7 +220,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   offer_type          = "Standard"
   kind                = "GlobalDocumentDB"
   free_tier_enabled   = true
-  
+
   consistency_policy {
     consistency_level = "Session"
   }
@@ -229,7 +229,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
     location          = var.location
     failover_priority = 0
   }
-  
+
   tags = local.tags
 }
 
@@ -266,11 +266,11 @@ resource "azurerm_monitor_diagnostic_setting" "cosmos_diagnostics" {
 
 # Container App Environment
 resource "azurerm_container_app_environment" "cae" {
-  name                           = "${local.resource_name_prefix}-cae"
-  location                       = azurerm_resource_group.rg.location
-  resource_group_name            = azurerm_resource_group.rg.name
-  log_analytics_workspace_id     = azurerm_log_analytics_workspace.logs.id
-  
+  name                       = "${local.resource_name_prefix}-cae"
+  location                   = azurerm_resource_group.rg.location
+  resource_group_name        = azurerm_resource_group.rg.name
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.logs.id
+
   tags = local.tags
 }
 
@@ -388,7 +388,7 @@ resource "azurerm_container_app" "api" {
           path = "/health"
           port = 8080
         }
-        initial_delay = 10
+        initial_delay  = 10
         period_seconds = 10
       }
     }
@@ -490,7 +490,7 @@ resource "azurerm_container_app" "web" {
           path = "/"
           port = 8080
         }
-        initial_delay = 10
+        initial_delay  = 10
         period_seconds = 10
       }
     }
