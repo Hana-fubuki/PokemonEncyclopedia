@@ -1,14 +1,7 @@
-name: Deploy to Azure (Bicep) - DEFAULT
+name: Deploy to Azure (Bicep) - DISABLED
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'PokemonEncyclopedia.ApiService/**'
-      - 'PokemonEncyclopedia.Web/**'
-      - 'infra/bicep/**'
-      - '.github/workflows/deploy-bicep.yml'
+  # Bicep deployment is currently disabled
   workflow_dispatch:
     inputs:
       environment:
