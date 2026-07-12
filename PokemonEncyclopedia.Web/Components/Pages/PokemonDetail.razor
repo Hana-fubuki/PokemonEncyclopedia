@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @attribute [StreamRendering(true)]
 @attribute [OutputCache(Duration = 300)]
+@implements IDisposable
 @inject PokemonApiClient PokemonApi
 @inject NavigationManager Navigation
 
@@ -30,6 +31,10 @@
                     @if (!string.IsNullOrWhiteSpace(_spriteUrl))
                     {
                         <img src="@_spriteUrl" alt="@_pokemon.Name sprite" />
+                    }
+                    else
+                    {
+                        <div class="sprite-placeholder">Loading sprite...</div>
                     }
                 </div>
 
@@ -206,40 +211,31 @@
     private IReadOnlyDictionary<string, string?> _spriteBySpecies = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<LearnedMoveViewModel> _moves = Array.Empty<LearnedMoveViewModel>();
     private string? _spriteUrl;
+    private CancellationTokenSource? _loadCts;
+    private int _loadVersion;
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync()
     {
-        _pokemon = await PokemonApi.GetPokemonAsync(Name);
-        if (_pokemon is null)
-        {
-            _species = null;
-            _evolutionChain = null;
-            _spriteBySpecies = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-            _moves = Array.Empty<LearnedMoveViewModel>();
-            _spriteUrl = null;
-            return;
-        }
+        _loadVersion++;
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
 
-        var movesTask = BuildMoveSummariesAsync(_pokemon);
-        var speciesTask = PokemonApi.GetSpeciesAsync(_pokemon.Species.Name);
-        var evolutionTask = PokemonApi.GetEvolutionChainAsync(_pokemon.Species.Name);
-        var allPokemonTask = PokemonApi.GetAllPokemonAsync();
+        _pokemon = null;
+        _species = null;
+        _evolutionChain = null;
+        _spriteBySpecies = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        _moves = Array.Empty<LearnedMoveViewModel>();
+        _spriteUrl = null;
 
-        await Task.WhenAll(movesTask, speciesTask, evolutionTask, allPokemonTask).ConfigureAwait(false);
+        _ = LoadPokemonDetailAsync(Name, _loadVersion, _loadCts.Token);
+        return Task.CompletedTask;
+    }
 
-        _moves = await movesTask.ConfigureAwait(false);
-        _species = await speciesTask.ConfigureAwait(false);
-        _evolutionChain = await evolutionTask.ConfigureAwait(false);
-        var allPokemon = await allPokemonTask.ConfigureAwait(false);
-        _spriteBySpecies = allPokemon
-            .Where(p => !string.IsNullOrWhiteSpace(p.Species?.Name) || !string.IsNullOrWhiteSpace(p.Name))
-            .GroupBy(p => p.Species?.Name ?? p.Name, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                g => g.Key,
-                g => GetSpriteUrl(g.First()),
-                StringComparer.OrdinalIgnoreCase);
-
-        _spriteUrl = GetSpriteUrl(_pokemon);
+    public void Dispose()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
     }
 
     private void GoBack()
@@ -247,14 +243,102 @@
         Navigation.NavigateTo("/");
     }
 
-    private async Task<IReadOnlyList<LearnedMoveViewModel>> BuildMoveSummariesAsync(PokeApiNet.Pokemon pokemon)
+    private async Task LoadPokemonDetailAsync(string name, int loadVersion, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pokemon = await PokemonApi.GetPokemonAsync(name, cancellationToken).ConfigureAwait(false);
+            if (pokemon is null)
+                return;
+
+            _pokemon = pokemon;
+            _spriteUrl = GetSpriteUrl(pokemon);
+            await InvokeAsync(StateHasChanged);
+
+            var allPokemonTask = PokemonApi.GetAllPokemonAsync(cancellationToken);
+            var speciesTask = PokemonApi.GetSpeciesAsync(pokemon.Species.Name, cancellationToken);
+            var movesTask = BuildMoveSummariesAsync(pokemon, cancellationToken);
+
+            _ = UpdateSpriteMapAsync(allPokemonTask, loadVersion, cancellationToken);
+
+            _species = await speciesTask.ConfigureAwait(false);
+            if (!IsCurrentLoad(loadVersion, cancellationToken))
+                return;
+
+            var chainId = GetEvolutionChainId(_species);
+            var evolutionTask = chainId is null
+                ? Task.FromResult<EvolutionChain?>(null)
+                : PokemonApi.GetEvolutionChainAsync(chainId.Value, cancellationToken);
+
+            _evolutionChain = await evolutionTask.ConfigureAwait(false);
+            await InvokeAsync(StateHasChanged);
+
+            _moves = await movesTask.ConfigureAwait(false);
+            if (!IsCurrentLoad(loadVersion, cancellationToken))
+                return;
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task UpdateSpriteMapAsync(
+        Task<IReadOnlyList<PokeApiNet.Pokemon>> allPokemonTask,
+        int loadVersion,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var allPokemon = await allPokemonTask.ConfigureAwait(false);
+            if (!IsCurrentLoad(loadVersion, cancellationToken))
+                return;
+
+            _spriteBySpecies = BuildSpriteMap(allPokemon);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildSpriteMap(IReadOnlyList<PokeApiNet.Pokemon> allPokemon)
+    {
+        return allPokemon
+            .Where(p => !string.IsNullOrWhiteSpace(p.Species?.Name) || !string.IsNullOrWhiteSpace(p.Name))
+            .GroupBy(p => p.Species?.Name ?? p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => GetSpriteUrl(g.First()),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static int? GetEvolutionChainId(PokemonSpecies? species)
+    {
+        var url = species?.EvolutionChain?.Url;
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+               int.TryParse(uri.Segments.LastOrDefault()?.Trim('/'), out var id)
+            ? id
+            : null;
+    }
+
+    private bool IsCurrentLoad(int loadVersion, CancellationToken cancellationToken)
+    {
+        return !cancellationToken.IsCancellationRequested && loadVersion == _loadVersion;
+    }
+
+    private async Task<IReadOnlyList<LearnedMoveViewModel>> BuildMoveSummariesAsync(PokeApiNet.Pokemon pokemon, CancellationToken cancellationToken)
     {
         var groups = pokemon.Moves
             .GroupBy(move => move.Move.Name, StringComparer.OrdinalIgnoreCase);
 
         var tasks = groups.Select(async group =>
         {
-            var move = await PokemonApi.GetMoveAsync(group.Key).ConfigureAwait(false);
+            var move = await PokemonApi.GetMoveAsync(group.Key, cancellationToken).ConfigureAwait(false);
             var levelLearned = group
                 .SelectMany(x => x.VersionGroupDetails)
                 .Where(detail => string.Equals(detail.MoveLearnMethod?.Name, "level-up", StringComparison.OrdinalIgnoreCase))
@@ -425,6 +509,10 @@
     .infobox-image img {
         max-width: 100%;
         max-height: 220px;
+    }
+
+    .sprite-placeholder {
+        color: var(--muted);
     }
 
     .infobox table {

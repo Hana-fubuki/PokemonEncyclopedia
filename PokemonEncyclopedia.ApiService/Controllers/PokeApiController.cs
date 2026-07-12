@@ -7,6 +7,7 @@ using PokemonEncyclopedia.Application.Features.GetMoveByName;
 using PokemonEncyclopedia.Application.Features.GetPokemonByGeneration;
 using PokemonEncyclopedia.Application.Features.GetPokemonByName;
 using PokemonEncyclopedia.Application.Features.GetPokemonSpeciesByName;
+using PokemonEncyclopedia.Application.Services;
 
 namespace PokemonEncyclopedia.ApiService.Controllers;
 
@@ -70,11 +71,26 @@ public class PokeApiController(IMediator mediator) : ControllerBase
         return Ok(species);
     }
 
+    [HttpGet("evolution-chain/{id:int}")]
+    [ProducesResponseType(typeof(EvolutionChain), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<EvolutionChain>> GetEvolutionChain(int id, [FromServices] IPokemonCatalogService catalogService, CancellationToken cancellationToken)
+    {
+        var evolutionChain = await catalogService.GetEvolutionChainByIdAsync(id, cancellationToken).ConfigureAwait(false);
+        if (evolutionChain is null)
+            return NotFound();
+
+        return Ok(evolutionChain);
+    }
+
     [HttpGet("evolution/{speciesName}")]
     [ProducesResponseType(typeof(EvolutionChain), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<EvolutionChain>> GetEvolutionChain(string speciesName, CancellationToken cancellationToken)
+    public async Task<ActionResult<EvolutionChain>> GetEvolutionChainBySpecies(
+        string speciesName,
+        CancellationToken cancellationToken)
     {
         var evolutionChain = await mediator.Send(new GetEvolutionChainBySpeciesNameQuery(speciesName), cancellationToken)
             .ConfigureAwait(false);

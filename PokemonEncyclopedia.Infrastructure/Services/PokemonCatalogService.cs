@@ -12,6 +12,9 @@ namespace PokemonEncyclopedia.Infrastructure.Services;
 public class PokemonCatalogService : IPokemonCatalogService
 {
     private const string AllPokemonCacheKey = "pokemon:all:v1";
+    private const string MoveCachePrefix = "pokemon:move:v1:";
+    private const string SpeciesCachePrefix = "pokemon:species:v1:";
+    private const string EvolutionCachePrefix = "pokemon:evolution:v1:";
     private const int MaxConcurrentRequests = 8;
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private readonly IDistributedCache _distributedCache;
@@ -74,10 +77,10 @@ public class PokemonCatalogService : IPokemonCatalogService
         if (string.IsNullOrWhiteSpace(normalizedName))
             return null;
 
-        var resource = await FindNamedResourceAsync<Move>(normalizedName, cancellationToken).ConfigureAwait(false);
-        return resource is null
-            ? null
-            : await _pokeApiClient.GetResourceAsync<Move>(resource.Name, cancellationToken).ConfigureAwait(false);
+        var cacheKey = $"{MoveCachePrefix}{normalizedName.ToLowerInvariant()}";
+        return await GetCachedResourceAsync(cacheKey,
+            () => _pokeApiClient.GetResourceAsync<Move>(normalizedName, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<PokemonSpecies?> GetPokemonSpeciesByNameAsync(string name, CancellationToken cancellationToken)
@@ -86,10 +89,21 @@ public class PokemonCatalogService : IPokemonCatalogService
         if (string.IsNullOrWhiteSpace(normalizedName))
             return null;
 
-        var resource = await FindNamedResourceAsync<PokemonSpecies>(normalizedName, cancellationToken).ConfigureAwait(false);
-        return resource is null
-            ? null
-            : await _pokeApiClient.GetResourceAsync<PokemonSpecies>(resource.Name, cancellationToken).ConfigureAwait(false);
+        var cacheKey = $"{SpeciesCachePrefix}{normalizedName.ToLowerInvariant()}";
+        return await GetCachedResourceAsync(cacheKey,
+            () => _pokeApiClient.GetResourceAsync<PokemonSpecies>(normalizedName, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<EvolutionChain?> GetEvolutionChainByIdAsync(int id, CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+            return null;
+
+        var cacheKey = $"{EvolutionCachePrefix}{id}";
+        return await GetCachedResourceAsync(cacheKey,
+            () => _pokeApiClient.GetResourceAsync<EvolutionChain>(id, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<EvolutionChain?> GetEvolutionChainBySpeciesNameAsync(string speciesName, CancellationToken cancellationToken)
@@ -103,11 +117,9 @@ public class PokemonCatalogService : IPokemonCatalogService
             return null;
 
         var evolutionChainId = GetResourceId(species.EvolutionChain);
-        if (evolutionChainId is null)
-            return null;
-
-        return await _pokeApiClient.GetResourceAsync<EvolutionChain>(evolutionChainId.Value, cancellationToken)
-            .ConfigureAwait(false);
+        return evolutionChainId is null
+            ? null
+            : await GetEvolutionChainByIdAsync(evolutionChainId.Value, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<NamedApiResource<PokemonSpecies>>> GetPokemonSpeciesByGenerationAsync(
@@ -243,22 +255,50 @@ public class PokemonCatalogService : IPokemonCatalogService
         };
     }
 
-    private async Task<NamedApiResource<T>?> FindNamedResourceAsync<T>(string name, CancellationToken cancellationToken)
-        where T : NamedApiResource
+    private async Task<T?> GetCachedResourceAsync<T>(string cacheKey, Func<Task<T?>> factory, CancellationToken cancellationToken)
     {
-        await foreach (var resource in _pokeApiClient.GetAllNamedResourcesAsync<T>(cancellationToken)
-                           .WithCancellation(cancellationToken)
-                           .ConfigureAwait(false))
+        var cachedJson = await _distributedCache.GetStringAsync(cacheKey, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(cachedJson))
         {
-            if (string.Equals(resource.Name, name, StringComparison.OrdinalIgnoreCase))
-                return resource;
+            var cachedResource = JsonSerializer.Deserialize<T>(cachedJson, SerializerOptions);
+            if (cachedResource is not null)
+                return cachedResource;
         }
 
-        return null;
+        var resource = await factory().ConfigureAwait(false);
+        if (resource is null)
+            return default;
+
+        var json = JsonSerializer.Serialize(resource, SerializerOptions);
+        await _distributedCache.SetStringAsync(
+            cacheKey,
+            json,
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12)
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        return resource;
     }
 
     private static int? GetResourceId(object resource)
     {
-        return resource.GetType().GetProperty("Id")?.GetValue(resource) is int id ? id : null;
+        if (resource.GetType().GetProperty("Url")?.GetValue(resource) is string url)
+        {
+            if (Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out var uri))
+            {
+                var lastSegment = uri.IsAbsoluteUri
+                    ? uri.Segments.LastOrDefault()?.Trim('/')
+                    : url.TrimEnd('/').Split('/').LastOrDefault();
+
+                if (int.TryParse(lastSegment, out var id))
+                    return id;
+            }
+        }
+
+        return resource.GetType().GetProperty("Id")?.GetValue(resource) is int fallbackId
+            ? fallbackId
+            : null;
     }
 }

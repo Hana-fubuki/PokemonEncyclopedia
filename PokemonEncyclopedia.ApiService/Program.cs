@@ -152,6 +152,7 @@ logger.LogInformation("Starting Pokémon API service");
 // Global exception middleware must be registered first so it
 // can catch exceptions from controllers, MediatR handlers, etc.
 // ------------------------------------------------------------
+app.UseMiddleware<ApiRequestLoggingMiddleware>();
 app.UseMiddleware<ApiExceptionMiddleware>();
 
 // OpenAPI mapping
