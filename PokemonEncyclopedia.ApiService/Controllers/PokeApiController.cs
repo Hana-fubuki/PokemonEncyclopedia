@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using PokeApiNet;
-using PokemonEncyclopedia.Application.DTOs;
 using PokemonEncyclopedia.Application.Features.GetAllPokemon;
 using PokemonEncyclopedia.Application.Features.GetEvolutionChainBySpeciesName;
 using PokemonEncyclopedia.Application.Features.GetMoveByName;
@@ -17,8 +16,8 @@ namespace PokemonEncyclopedia.ApiService.Controllers;
 public class PokeApiController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<PokemonListItemDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<PokemonListItemDto>>> GetAllPokemon(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(IReadOnlyList<Pokemon>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<Pokemon>>> GetAllPokemon(CancellationToken cancellationToken)
     {
         var pokemon = await mediator.Send(new GetAllPokemonQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(pokemon);
