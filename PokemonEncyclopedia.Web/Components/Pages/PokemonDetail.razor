@@ -467,12 +467,12 @@
 
     private static string DisplayName(string? value)
     {
-        return string.IsNullOrWhiteSpace(value) ? "—" : FormatToken(value);
+        return FormatToken(value);
     }
 
-    private static string FormatToken(string value)
+    private static string FormatToken(string? value)
     {
-        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('-', ' '));
+        return string.IsNullOrWhiteSpace(value) ? "—" : System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('-', ' '));
     }
 
     private static double GetStatPercent(int value)

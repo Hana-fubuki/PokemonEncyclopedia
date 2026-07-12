@@ -642,7 +642,7 @@ public class PokemonCatalogService : IPokemonCatalogService
         };
     }
 
-    private async Task<T?> GetCachedResourceAsync<T>(string cacheKey, Func<Task<T?>> factory, CancellationToken cancellationToken)
+    private async Task<T?> GetCachedResourceAsync<T>(string cacheKey, Func<Task<T>> factory, CancellationToken cancellationToken)
     {
         var cachedJson = await _distributedCache.GetStringAsync(cacheKey, cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(cachedJson))
