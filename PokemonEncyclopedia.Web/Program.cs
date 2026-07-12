@@ -1,19 +1,18 @@
 using PokemonEncyclopedia.Web;
 using PokemonEncyclopedia.Web.Components;
-using Aspire.Seq;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
 builder.AddRedisOutputCache("cache");
-builder.AddSeqEndpoint("seq");
+builder.Services.AddMemoryCache();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddHttpClient<WeatherApiClient>(client =>
+builder.Services.AddHttpClient<PokemonApiClient>(client =>
 {
     // This URL uses "https+http://" to indicate HTTPS is preferred over HTTP.
     // Learn more about service discovery scheme resolution at https://aka.ms/dotnet/sdschemes.

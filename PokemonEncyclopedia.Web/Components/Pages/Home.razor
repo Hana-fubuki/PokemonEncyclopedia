@@ -1,7 +1,401 @@
-﻿@page "/"
+@page "/"
+@attribute [StreamRendering(true)]
+@attribute [OutputCache(Duration = 300)]
+@inject PokemonApiClient PokemonApi
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Pokédex</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="pokedex-shell">
+    <aside class="filters-panel">
+        <h2>Filters</h2>
 
-Welcome to your new app.
+        <label class="search-label">
+            <span>Search</span>
+            <input class="search-input" value="@_searchText" @oninput="HandleSearchInput" placeholder="Search Pokémon..." />
+        </label>
+
+        <div class="filter-group">
+            <div class="filter-title">Generation</div>
+            @foreach (var generation in Enumerable.Range(1, 9))
+            {
+                <label class="filter-check">
+                    <input type="checkbox" checked="@_selectedGenerations.Contains(generation)" @onchange="() => ToggleGeneration(generation)" />
+                    <span>Gen @generation</span>
+                </label>
+            }
+        </div>
+
+        <div class="filter-group">
+            <div class="filter-title">Type</div>
+            @if (_availableTypes.Count == 0)
+            {
+                <p class="muted">Loading types...</p>
+            }
+            else
+            {
+                @foreach (var type in _availableTypes)
+                {
+                    <label class="filter-check">
+                        <input type="checkbox" checked="@_selectedTypes.Contains(type)" @onchange="() => ToggleType(type)" />
+                        <span class="type-pill type-@type">@type</span>
+                    </label>
+                }
+            }
+        </div>
+
+        <button class="clear-button" @onclick="ClearFilters">Clear filters</button>
+    </aside>
+
+    <section class="pokedex-content">
+        <div class="pokedex-header">
+            <div>
+                <h1>Pokédex</h1>
+                <p>Select a Pokémon to view a detail page.</p>
+            </div>
+            <div class="result-count">@_filteredPokemon.Count Pokémon</div>
+        </div>
+
+        @if (_pokemon is null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else if (_filteredPokemon.Count == 0)
+        {
+            <p class="muted">No Pokémon match the selected filters.</p>
+        }
+        else
+        {
+            <div class="pokemon-grid">
+                @foreach (var pokemon in _filteredPokemon)
+                {
+                    var sprite = pokemon.Sprites?.Other?.DreamWorld?.FrontDefault
+                        ?? pokemon.Sprites?.Other?.OfficialArtwork?.FrontDefault
+                        ?? pokemon.Sprites?.FrontDefault;
+
+                    <a class="pokemon-card" href="@($"/pokemon/{pokemon.Name}")">
+                        <div class="pokemon-image">
+                            @if (!string.IsNullOrWhiteSpace(sprite))
+                            {
+                                <img src="@sprite" alt="@pokemon.Name sprite" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="pokemon-placeholder">No sprite</div>
+                            }
+                        </div>
+                        <div class="pokemon-meta">
+                            <div class="pokemon-name">#@pokemon.Id @pokemon.Name</div>
+                            <div class="pokemon-types">
+                                @foreach (var type in pokemon.Types.Select(t => t.Type.Name))
+                                {
+                                    <span class="type-pill type-@type">@type</span>
+                                }
+                            </div>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<PokeApiNet.Pokemon>? _pokemon;
+    private IReadOnlyList<PokeApiNet.Pokemon> _filteredPokemon = Array.Empty<PokeApiNet.Pokemon>();
+    private readonly HashSet<int> _selectedGenerations = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    private readonly HashSet<string> _selectedTypes = [];
+    private string _searchText = string.Empty;
+    private IReadOnlyList<string> _availableTypes = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _pokemon = await PokemonApi.GetAllPokemonAsync();
+        _availableTypes = _pokemon
+            .SelectMany(p => p.Types.Select(t => t.Type.Name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(type => type)
+            .ToArray();
+        ApplyFilters();
+    }
+
+    private void ToggleGeneration(int generation)
+    {
+        if (!_selectedGenerations.Add(generation))
+            _selectedGenerations.Remove(generation);
+
+        ApplyFilters();
+    }
+
+    private void ToggleType(string type)
+    {
+        if (!_selectedTypes.Add(type))
+            _selectedTypes.Remove(type);
+
+        ApplyFilters();
+    }
+
+    private void ClearFilters()
+    {
+        _searchText = string.Empty;
+        _selectedGenerations.Clear();
+        foreach (var generation in Enumerable.Range(1, 9))
+        {
+            _selectedGenerations.Add(generation);
+        }
+
+        _selectedTypes.Clear();
+        ApplyFilters();
+    }
+
+    private void HandleSearchInput(ChangeEventArgs args)
+    {
+        _searchText = args.Value?.ToString() ?? string.Empty;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        if (_pokemon is null)
+        {
+            _filteredPokemon = Array.Empty<PokeApiNet.Pokemon>();
+            return;
+        }
+
+        var search = _searchText.Trim();
+        _filteredPokemon = _pokemon
+            .Where(pokemon => MatchesSearch(pokemon, search))
+            .Where(MatchesGeneration)
+            .Where(MatchesType)
+            .OrderBy(pokemon => pokemon.Id)
+            .ToArray();
+    }
+
+    private bool MatchesSearch(PokeApiNet.Pokemon pokemon, string search)
+    {
+        return string.IsNullOrWhiteSpace(search) ||
+               pokemon.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+               pokemon.Id.ToString().Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool MatchesGeneration(PokeApiNet.Pokemon pokemon)
+    {
+        return _selectedGenerations.Contains(GetGeneration(pokemon.Id));
+    }
+
+    private bool MatchesType(PokeApiNet.Pokemon pokemon)
+    {
+        if (_selectedTypes.Count == 0)
+            return true;
+
+        return pokemon.Types.Any(type => _selectedTypes.Contains(type.Type.Name));
+    }
+
+    private static int GetGeneration(int id)
+    {
+        return id switch
+        {
+            <= 151 => 1,
+            <= 251 => 2,
+            <= 386 => 3,
+            <= 493 => 4,
+            <= 649 => 5,
+            <= 721 => 6,
+            <= 809 => 7,
+            <= 905 => 8,
+            _ => 9
+        };
+    }
+}
+
+<style>
+    .pokedex-shell {
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .filters-panel {
+        position: sticky;
+        top: 1rem;
+        align-self: start;
+        padding: 1rem;
+        border: 1px solid #d7d7d7;
+        border-radius: 1rem;
+        background: #f8f9fb;
+    }
+
+    .filters-panel h2,
+    .pokedex-header h1 {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .search-label {
+        display: grid;
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.65rem 0.8rem;
+        border: 1px solid #cfcfcf;
+        border-radius: 0.75rem;
+    }
+
+    .filter-group {
+        margin-top: 1rem;
+    }
+
+    .filter-title {
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .filter-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.35rem 0;
+        text-transform: capitalize;
+    }
+
+    .clear-button {
+        margin-top: 1rem;
+        width: 100%;
+        padding: 0.7rem 0.9rem;
+        border: 0;
+        border-radius: 0.75rem;
+        background: #1d4ed8;
+        color: white;
+        font-weight: 600;
+    }
+
+    .pokedex-content {
+        min-width: 0;
+    }
+
+    .pokedex-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .result-count {
+        padding: 0.5rem 0.75rem;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-weight: 700;
+    }
+
+    .pokemon-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+
+    .pokemon-card {
+        display: block;
+        border: 1px solid #ddd;
+        border-radius: 1rem;
+        padding: 1rem;
+        text-decoration: none;
+        color: inherit;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .pokemon-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    .pokemon-image {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 120px;
+        background: linear-gradient(180deg, #fff, #f8f8fc);
+        border-radius: 0.75rem;
+    }
+
+    .pokemon-image img {
+        max-width: 100%;
+        max-height: 110px;
+    }
+
+    .pokemon-placeholder {
+        width: 100%;
+        min-height: 110px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #888;
+    }
+
+    .pokemon-meta {
+        display: grid;
+        gap: 0.65rem;
+        margin-top: 0.75rem;
+    }
+
+    .pokemon-name {
+        text-transform: capitalize;
+        font-weight: 700;
+    }
+
+    .pokemon-types {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .type-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: capitalize;
+        color: #1f2937;
+        background: #e5e7eb;
+    }
+
+    .type-fire { background: #fed7aa; }
+    .type-water { background: #bfdbfe; }
+    .type-grass { background: #bbf7d0; }
+    .type-electric { background: #fef08a; }
+    .type-ice { background: #cffafe; }
+    .type-fighting { background: #fecaca; }
+    .type-poison { background: #e9d5ff; }
+    .type-ground { background: #f5d0a9; }
+    .type-flying { background: #ddd6fe; }
+    .type-psychic { background: #fbcfe8; }
+    .type-bug { background: #d9f99d; }
+    .type-rock { background: #e7e5e4; }
+    .type-ghost { background: #ddd6fe; }
+    .type-dragon { background: #c7d2fe; }
+    .type-dark { background: #d1d5db; }
+    .type-steel { background: #e5e7eb; }
+    .type-fairy { background: #fce7f3; }
+    .type-normal { background: #f3f4f6; }
+
+    .muted {
+        color: #6b7280;
+    }
+
+    @@media (max-width: 900px) {
+        .pokedex-shell {
+            grid-template-columns: 1fr;
+        }
+
+        .filters-panel {
+            position: static;
+        }
+    }
+</style>

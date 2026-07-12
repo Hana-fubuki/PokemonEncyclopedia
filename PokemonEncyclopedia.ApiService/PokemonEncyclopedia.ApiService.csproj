@@ -10,25 +10,20 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\PokemonEncyclopedia.Application\PokemonEncyclopedia.Application.csproj"/>
+        <ProjectReference Include="..\PokemonEncyclopedia.Infrastructure\PokemonEncyclopedia.Infrastructure.csproj"/>
         <ProjectReference Include="..\PokemonEncyclopedia.ServiceDefaults\PokemonEncyclopedia.ServiceDefaults.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="a2n.Hangfire.Dashboard" Version="2.5.0"/>
         <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.4.6"/>
-        <PackageReference Include="Aspire.Seq" Version="13.4.6"/>
-        <PackageReference Include="FluentValidation" Version="12.1.1"/>
-        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1"/>
         <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23"/>
         <PackageReference Include="Hangfire.AzureCosmosDb" Version="2.0.8"/>
-        <PackageReference Include="IeuanWalker.Hangfire.RecurringJob" Version="2.0.0"/>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8"/>
-        <PackageReference Include="PokeApiNet" Version="4.1.0"/>
         <PackageReference Include="Scalar.AspNetCore" Version="2.16.10"/>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3"/>
         <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="10.2.3"/>
-        <PackageReference Include="MediatR" Version="11.1.0"/>
-        <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.1.0"/>
     </ItemGroup>
 
 </Project>

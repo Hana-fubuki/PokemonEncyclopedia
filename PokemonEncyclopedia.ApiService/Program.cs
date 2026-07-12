@@ -1,22 +1,18 @@
 using System.Data.Common;
 using System.Reflection;
-using FluentValidation;
 using Hangfire;
-using MediatR;
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi;
-using PokeApiNet;
 using a2n.Hangfire.Dashboard;
-using Aspire.Seq;
+using PokemonEncyclopedia.Application.DependencyInjection;
+using PokemonEncyclopedia.Infrastructure.DependencyInjection;
 using PokemonEncyclopedia.ApiService.HealthChecks;
 using PokemonEncyclopedia.ApiService.Middleware;
 using PokemonEncyclopedia.ApiService.Services;
 using PokemonEncyclopedia.ApiService.Swagger;
-using PokemonEncyclopedia.ApiService.Validators;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,17 +23,12 @@ var assembly = Assembly.GetExecutingAssembly();
 // ------------------------------------------------------------
 builder.AddServiceDefaults();
 builder.AddRedisDistributedCache("cache");
+builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-// MediatR and validation pipeline
-builder.Services.AddMediatR(assembly);
-builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-
-// FluentValidation integration and registration
-builder.Services.AddValidatorsFromAssemblyContaining<GetPokemonByGenerationQueryValidator>();
 
 // Consistent 400 response for MVC model binding failures
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -46,9 +37,16 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     {
         var errors = context.ModelState
             .Where(kvp => kvp.Value?.Errors.Count > 0)
-            .Select(kvp => new { Field = kvp.Key, Errors = kvp.Value?.Errors.Select(e => e.ErrorMessage) });
+            .ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
 
-        return new BadRequestObjectResult(new { message = "Validation failed", errors });
+        return new BadRequestObjectResult(new ValidationProblemDetails(errors)
+        {
+            Title = "Validation failed",
+            Status = StatusCodes.Status400BadRequest,
+            Detail = "One or more validation rules failed."
+        });
     };
 });
 
@@ -88,14 +86,9 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// PokeApi client
-builder.Services.AddSingleton<PokeApiClient>();
-builder.Services.AddSingleton<IPokemonCatalogService, PokemonCatalogService>();
-builder.Services.AddTransient<PokemonCacheRefreshJob>();
 builder.Services.AddHostedService<PokemonCatalogWarmupHostedService>();
 builder.Services.AddHealthChecks()
     .AddCheck<PokemonCatalogWarmupHealthCheck>("pokemon_catalog_warmup");
-builder.AddSeqEndpoint("seq");
 builder.Services.AddHangfireDashboardUI();
 
 var cosmosConnectionString =
@@ -161,24 +154,7 @@ logger.LogInformation("Starting Pokémon API service");
 // Global exception middleware must be registered first so it
 // can catch exceptions from controllers, MediatR handlers, etc.
 // ------------------------------------------------------------
-app.UseMiddleware<GlobalExceptionMiddleware>();
-
-// Fallback exception handler for non-validation errors (safety net)
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        var feature = context.Features.Get<IExceptionHandlerFeature>();
-        var ex = feature?.Error;
-
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = "application/json";
-
-        logger.LogError(ex, "Unhandled exception processing request");
-
-        await context.Response.WriteAsJsonAsync(new { message = "An error occurred while processing your request." });
-    });
-});
+app.UseMiddleware<ApiExceptionMiddleware>();
 
 // OpenAPI mapping
 app.MapOpenApi();
@@ -218,7 +194,6 @@ app.Lifetime.ApplicationStarted.Register(() =>
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
-app.MapPrometheusScrapingEndpoint();
 app.UseHangfireDashboardUI("/hangfire", new DashboardUIOptions
 {
     DashboardTitle = "Pokémon Encyclopedia Jobs",

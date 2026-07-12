@@ -1,6 +1,8 @@
 <Solution>
+  <Project Path="PokemonEncyclopedia.Application/PokemonEncyclopedia.Application.csproj" />
   <Project Path="PokemonEncyclopedia.ApiService/PokemonEncyclopedia.ApiService.csproj" />
   <Project Path="PokemonEncyclopedia.AppHost/PokemonEncyclopedia.AppHost.csproj" />
+  <Project Path="PokemonEncyclopedia.Infrastructure/PokemonEncyclopedia.Infrastructure.csproj" />
   <Project Path="PokemonEncyclopedia.ServiceDefaults/PokemonEncyclopedia.ServiceDefaults.csproj" />
   <Project Path="PokemonEncyclopedia.Tests/PokemonEncyclopedia.Tests.csproj" />
   <Project Path="PokemonEncyclopedia.Web/PokemonEncyclopedia.Web.csproj" />

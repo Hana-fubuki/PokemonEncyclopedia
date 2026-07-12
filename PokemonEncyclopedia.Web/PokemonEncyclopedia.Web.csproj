@@ -12,7 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="Aspire.StackExchange.Redis.OutputCaching" Version="13.4.6"/>
-        <PackageReference Include="Aspire.Seq" Version="13.4.6"/>
+        <PackageReference Include="PokeApiNet" Version="4.1.0"/>
     </ItemGroup>
 
 </Project>

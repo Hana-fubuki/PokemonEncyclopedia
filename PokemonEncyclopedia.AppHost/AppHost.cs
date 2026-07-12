@@ -1,34 +1,6 @@
 using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);
-var seq = builder.AddSeq("seq")
-    .WithDataVolume()
-    .ExcludeFromManifest()
-    .WithLifetime(ContainerLifetime.Persistent)
-    .WithEnvironment("ACCEPT_EULA", "Y");
-
-var prometheusConfigPath = Path.Combine(builder.AppHostDirectory, "observability", "prometheus");
-var grafanaProvisioningPath = Path.Combine(builder.AppHostDirectory, "observability", "grafana", "provisioning");
-var prometheusDataPath = Path.Combine(builder.AppHostDirectory, ".data", "prometheus");
-var grafanaDataPath = Path.Combine(builder.AppHostDirectory, ".data", "grafana");
-
-var prometheus = builder.AddContainer("prometheus", "prom/prometheus")
-    .ExcludeFromManifest()
-    .WithHttpEndpoint(targetPort: 9090, port: 9090, name: "http")
-    .WithBindMount(prometheusConfigPath, "/etc/prometheus", true)
-    .WithBindMount(prometheusDataPath, "/prometheus", false)
-    .WithLifetime(ContainerLifetime.Persistent);
-
-var grafana = builder.AddContainer("grafana", "grafana/grafana")
-    .ExcludeFromManifest()
-    .WithHttpEndpoint(targetPort: 3000, port: 3000, name: "http")
-    .WithBindMount(grafanaProvisioningPath, "/etc/grafana/provisioning", true)
-    .WithBindMount(grafanaDataPath, "/var/lib/grafana", false)
-    .WithLifetime(ContainerLifetime.Persistent)
-    .WithEnvironment("GF_SECURITY_ADMIN_USER", "admin")
-    .WithEnvironment("GF_SECURITY_ADMIN_PASSWORD", "admin")
-    .WithEnvironment("GF_AUTH_ANONYMOUS_ENABLED", "true")
-    .WithEnvironment("GF_AUTH_ANONYMOUS_ORG_ROLE", "Admin");
 
 var cache = builder.AddAzureManagedRedis("cache")
     .RunAsContainer(redis => redis
@@ -43,13 +15,10 @@ var hangfireDb = cosmos.AddCosmosDatabase("hangfiredb");
 var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
-    .WithHttpEndpoint(targetPort: 5200, port: 9464, name: "metrics", isProxied: true)
     .WithReference(cache)
     .WaitFor(cache)
     .WithReference(hangfireDb)
     .WaitFor(hangfireDb)
-    .WithReference(seq)
-    .WaitFor(seq)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
     .WithCommand(
         "open-swagger",
@@ -87,12 +56,9 @@ var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice"
 
 builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
     .WithExternalHttpEndpoints()
-    .WithHttpEndpoint(targetPort: 5525, port: 9465, name: "metrics", isProxied: true)
     .WithHttpHealthCheck("/health")
     .WithReference(cache)
     .WaitFor(cache)
-    .WithReference(seq)
-    .WaitFor(seq)
     .WithReference(apiService)
     .WaitFor(apiService);
 
