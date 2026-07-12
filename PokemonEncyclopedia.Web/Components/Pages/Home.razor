@@ -7,7 +7,10 @@
 
 <div class="pokedex-shell">
     <aside class="filters-panel">
-        <h2>Filters</h2>
+        <div class="sidebar-title">
+            <h1>Pokédex</h1>
+            <p>Search and refine the catalog.</p>
+        </div>
 
         <label class="search-label">
             <span>Search</span>
@@ -48,10 +51,7 @@
 
     <section class="pokedex-content">
         <div class="pokedex-header">
-            <div>
-                <h1>Pokédex</h1>
-                <p>Select a Pokémon to view a detail page.</p>
-            </div>
+            <p>Select a Pokémon to view a detail page.</p>
             <div class="result-count">@_filteredPokemon.Count Pokémon</div>
         </div>
 
@@ -225,9 +225,15 @@
         background: #f8f9fb;
     }
 
-    .filters-panel h2,
+    .sidebar-title h1,
     .pokedex-header h1 {
         margin: 0 0 0.5rem 0;
+    }
+
+    .sidebar-title p,
+    .pokedex-header p {
+        margin: 0;
+        color: #6b7280;
     }
 
     .search-label {
@@ -278,7 +284,7 @@
     .pokedex-header {
         display: flex;
         justify-content: space-between;
-        align-items: end;
+        align-items: center;
         gap: 1rem;
         margin-bottom: 1rem;
     }
