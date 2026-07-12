@@ -11,6 +11,7 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
     private const string AllPokemonCacheKey = "pokemon:all";
     private const string LegendaryPokemonCacheKey = "pokemon:legendary";
+        private const string AllAbilitiesCacheKey = "abilities:all";
 
     public async Task<IReadOnlyList<Pokemon>> GetAllPokemonAsync(CancellationToken cancellationToken = default)
     {
@@ -18,7 +19,7 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         var pokemon = await cache.GetOrCreateAsync(AllPokemonCacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheDuration;
-            var response = await httpClient.GetFromJsonAsync<Pokemon[]>("/api/PokeApi", cancellationToken)
+            var response = await httpClient.GetFromJsonAsync<Pokemon[]>("/api/PokeApi/details", cancellationToken)
                 .ConfigureAwait(false);
             return (IReadOnlyList<Pokemon>)(response ?? Array.Empty<Pokemon>());
         }).ConfigureAwait(false) ?? Array.Empty<Pokemon>();
@@ -137,5 +138,43 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("client.operation", "legendary-pokemon"));
         return legendaryNames;
+    }
+
+    public async Task<IReadOnlyList<Ability>> GetAllAbilitiesAsync(CancellationToken cancellationToken = default)
+    {
+        var sw = Stopwatch.StartNew();
+        var abilities = await cache.GetOrCreateAsync(AllAbilitiesCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            var response = await httpClient.GetFromJsonAsync<Ability[]>("/api/PokeApi/abilities", cancellationToken)
+                .ConfigureAwait(false);
+            return (IReadOnlyList<Ability>)(response ?? Array.Empty<Ability>());
+        }).ConfigureAwait(false) ?? Array.Empty<Ability>();
+        sw.Stop();
+        Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("client.operation", "all-abilities"));
+        return abilities;
+    }
+
+    public async Task<Ability?> GetAbilityAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = name.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+
+        var cacheKey = $"ability:{normalizedName}";
+        if (cache.TryGetValue(cacheKey, out Ability? cachedAbility))
+            return cachedAbility;
+
+        var sw = Stopwatch.StartNew();
+        var ability = await httpClient.GetFromJsonAsync<Ability>($"/api/PokeApi/ability/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+            .ConfigureAwait(false);
+        sw.Stop();
+        Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("client.operation", "ability"),
+            new KeyValuePair<string, object?>("ability.name", normalizedName));
+        if (ability is not null)
+            cache.Set(cacheKey, ability, CacheDuration);
+
+        return ability;
     }
 }

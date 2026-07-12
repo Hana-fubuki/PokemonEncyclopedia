@@ -31,7 +31,8 @@ public sealed class PokemonThemeState
         {
             try
             {
-                await _jsRuntime.InvokeVoidAsync("themeInterop.setTheme", IsDarkMode ? "dark" : "light");
+                var themeName = IsDarkMode ? "dark" : "light";
+                await _jsRuntime.InvokeVoidAsync("themeInterop.setTheme", themeName);
             }
             catch
             {

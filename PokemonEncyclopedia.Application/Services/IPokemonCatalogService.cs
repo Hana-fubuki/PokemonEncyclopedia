@@ -35,6 +35,10 @@ public interface IPokemonCatalogService
 
     Task<IReadOnlyList<Move>> GetAllMovesAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Ability>> GetAllAbilitiesAsync(CancellationToken cancellationToken);
+
+    Task<Ability?> GetAbilityByNameAsync(string name, CancellationToken cancellationToken);
+
     Task<IReadOnlySet<string>> GetLegendaryPokemonNamesAsync(CancellationToken cancellationToken);
 
     Task WarmupPokemonSpeciesAsync(CancellationToken cancellationToken);

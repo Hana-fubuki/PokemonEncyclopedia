@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @implements IAsyncDisposable
+@rendermode InteractiveServer
 @inject PokemonThemeState ThemeState
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
@@ -11,7 +12,7 @@
                 <span class="banner-icon">📚</span>
                 <h1>Poképedia</h1>
             </a>
-            <button class="theme-toggle" @onclick="ToggleTheme" title="Toggle dark mode">
+            <button type="button" class="theme-toggle" @onclick="ToggleTheme" title="Toggle dark mode">
                 <span>@(ThemeState.IsDarkMode ? "☀️" : "🌙")</span>
             </button>
         </div>
@@ -47,6 +48,7 @@
     private async Task ToggleTheme()
     {
         await ThemeState.Toggle();
+        await InvokeAsync(StateHasChanged);
     }
 
     private void HandleThemeChanged()
@@ -156,6 +158,9 @@
         font-size: 1.2rem;
         cursor: pointer;
         transition: background 0.2s ease, border-color 0.2s ease;
+        padding: 0;
+        outline: none;
+        z-index: 101;
     }
 
     .theme-toggle:hover {

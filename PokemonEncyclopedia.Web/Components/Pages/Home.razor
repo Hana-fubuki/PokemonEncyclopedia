@@ -57,6 +57,12 @@
                        @onchange="(ChangeEventArgs e) => FilterState.IncludeLegendary = (bool?)e.Value ?? true" />
                 <span>Include Legendary</span>
             </label>
+            <label class="filter-check">
+                <input type="checkbox"
+                       checked="@FilterState.IncludeMythical"
+                       @onchange="(ChangeEventArgs e) => FilterState.IncludeMythical = (bool?)e.Value ?? true" />
+                <span>Include Mythical</span>
+            </label>
         </div>
     </aside>
 
@@ -100,9 +106,12 @@
                         <div class="pokemon-meta">
                             <div class="pokemon-name">#@pokemon.Id @pokemon.Name</div>
                             <div class="pokemon-types">
-                                @foreach (var type in pokemon.Types.Select(t => t.Type.Name))
+                                @if (pokemon.Types is not null)
                                 {
-                                    <span class="type-pill type-@type">@type</span>
+                                    @foreach (var type in pokemon.Types.Select(t => t.Type.Name))
+                                    {
+                                        <span class="type-pill type-@type">@type</span>
+                                    }
                                 }
                             </div>
                         </div>
@@ -156,6 +165,7 @@
             .Where(MatchesGeneration)
             .Where(MatchesType)
             .Where(MatchesLegendary)
+            .Where(MatchesMythical)
             .OrderBy(pokemon => pokemon.Id)
             .ToArray();
     }
@@ -187,6 +197,37 @@
 
         var isLegendary = _legendaryPokemonNames.Contains(pokemon.Name);
         return FilterState.IncludeLegendary || !isLegendary;
+    }
+
+    private bool MatchesMythical(PokeApiNet.Pokemon pokemon)
+    {
+        // For now, we check if it's NOT legendary and has mythical characteristics
+        // This is a simple heuristic - in future could fetch actual species data
+        var isMythicalName = pokemon.Name.Contains("mew", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("celebi", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("jirachi", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("deoxys", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("phione", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("manaphy", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("darkrai", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("shaymin", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("arceus", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("victini", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("keldeo", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("meloetta", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("genesect", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("diancie", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("hoopa", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("volcanion", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("magearna", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("marshadow", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("zeraora", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("meltan", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("melmetal", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("zarude", StringComparison.OrdinalIgnoreCase) ||
+                             pokemon.Name.Contains("pecharunt", StringComparison.OrdinalIgnoreCase);
+
+        return FilterState.IncludeMythical || !isMythicalName;
     }
 
     private static int GetGeneration(int id)

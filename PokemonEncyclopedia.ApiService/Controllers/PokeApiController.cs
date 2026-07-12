@@ -2,6 +2,8 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using PokeApiNet;
 using PokemonEncyclopedia.Application.Features.GetAllPokemon;
+using PokemonEncyclopedia.Application.Features.GetAllAbilities;
+using PokemonEncyclopedia.Application.Features.GetAbilityByName;
 using PokemonEncyclopedia.Application.Features.GetEvolutionChainBySpeciesName;
 using PokemonEncyclopedia.Application.Features.GetMoveByName;
 using PokemonEncyclopedia.Application.Features.GetPokemonByGeneration;
@@ -17,9 +19,17 @@ public class PokeApiController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<PokemonSpecies>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<PokemonSpecies>>> GetAllPokemon(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<Pokemon>>> GetAllPokemon(CancellationToken cancellationToken)
     {
         var pokemon = await mediator.Send(new GetAllPokemonQuery(), cancellationToken).ConfigureAwait(false);
+        return Ok(pokemon);
+    }
+
+    [HttpGet("details")]
+    [ProducesResponseType(typeof(IReadOnlyList<Pokemon>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<Pokemon>>> GetAllPokemonDetails(CancellationToken cancellationToken)
+    {
+        var pokemon = await mediator.Send(new GetAllPokemonDetailsQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(pokemon);
     }
 
@@ -108,5 +118,26 @@ public class PokeApiController(IMediator mediator) : ControllerBase
     {
         var legendaryNames = await catalogService.GetLegendaryPokemonNamesAsync(cancellationToken).ConfigureAwait(false);
         return Ok(legendaryNames);
+    }
+
+    [HttpGet("abilities")]
+    [ProducesResponseType(typeof(IReadOnlyList<Ability>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<Ability>>> GetAllAbilities(CancellationToken cancellationToken)
+    {
+        var abilities = await mediator.Send(new GetAllAbilitiesQuery(), cancellationToken).ConfigureAwait(false);
+        return Ok(abilities);
+    }
+
+    [HttpGet("ability/{name}")]
+    [ProducesResponseType(typeof(Ability), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<Ability>> GetAbilityByName(string name, CancellationToken cancellationToken)
+    {
+        var ability = await mediator.Send(new GetAbilityByNameQuery(name), cancellationToken).ConfigureAwait(false);
+        if (ability is null)
+            return NotFound();
+
+        return Ok(ability);
     }
 }

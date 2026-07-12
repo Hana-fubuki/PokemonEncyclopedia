@@ -6,3 +6,12 @@ window.themeInterop = {
         localStorage.setItem('pokepedia-theme', theme);
     }
 };
+
+// Initialize theme on page load if needed
+document.addEventListener('DOMContentLoaded', function() {
+    const savedTheme = localStorage.getItem('pokepedia-theme') || 'dark';
+    const page = document.querySelector('.page');
+    if (page) {
+        page.className = 'page theme-' + savedTheme;
+    }
+});

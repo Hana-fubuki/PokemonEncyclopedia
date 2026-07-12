@@ -4,6 +4,7 @@ public sealed class PokemonFilterState
 {
     private string _searchText = string.Empty;
     private bool _includeLegendary = true;
+    private bool _includeMythical = true;
 
     public PokemonFilterState()
     {
@@ -42,6 +43,19 @@ public sealed class PokemonFilterState
         }
     }
 
+    public bool IncludeMythical
+    {
+        get => _includeMythical;
+        set
+        {
+            if (_includeMythical == value)
+                return;
+
+            _includeMythical = value;
+            Changed?.Invoke();
+        }
+    }
+
     public HashSet<int> SelectedGenerations { get; } = [];
 
     public HashSet<string> SelectedTypes { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -73,6 +87,7 @@ public sealed class PokemonFilterState
 
         SelectedTypes.Clear();
         _includeLegendary = true;
+        _includeMythical = true;
         Changed?.Invoke();
     }
 }

@@ -176,13 +176,18 @@
                             <div class="abilities-list">
                                 @foreach (var ability in _pokemon.Abilities)
                                 {
-                                    <span class="ability-pill @(ability.IsHidden ? "ability-hidden" : "ability-normal")">
-                                        @ability.Ability.Name
-                                        @if (ability.IsHidden)
-                                        {
-                                            <span class="ability-badge">Hidden</span>
-                                        }
-                                    </span>
+                                    var isSelected = _selectedAbility?.Name == ability.Ability.Name;
+                                    <button type="button" 
+                                            class="ability-pill-button @(ability.IsHidden ? "ability-hidden" : "ability-normal") @(isSelected ? "ability-selected" : "")"
+                                            @onclick="() => OnAbilitySelectedAsync(ability.Ability.Name)">
+                                        <span class="ability-text">
+                                            @ability.Ability.Name
+                                            @if (ability.IsHidden)
+                                            {
+                                                <span class="ability-badge">Hidden</span>
+                                            }
+                                        </span>
+                                    </button>
                                 }
                             </div>
                         </div>
@@ -201,6 +206,40 @@
                         }
                     </div>
                 </div>
+
+                @if (_selectedAbility is not null)
+                {
+                    <div class="section-card">
+                        <h2>Ability details</h2>
+                        <div class="ability-detail-card">
+                            <div class="ability-header">
+                                <h3>@_selectedAbility.Name</h3>
+                                @if (_pokemon.Abilities.FirstOrDefault(a => a.Ability.Name == _selectedAbility.Name)?.IsHidden == true)
+                                {
+                                    <span class="ability-badge">Hidden</span>
+                                }
+                            </div>
+                            
+                            <div class="ability-content">
+                                @if (!string.IsNullOrWhiteSpace(_selectedAbilityEffect))
+                                {
+                                    <div class="ability-effect">
+                                        <h4>Effect</h4>
+                                        <p>@_selectedAbilityEffect</p>
+                                    </div>
+                                }
+
+                                @if (_selectedAbility.Generation is not null)
+                                {
+                                    <div class="ability-generation">
+                                        <h4>Introduced</h4>
+                                        <p>@_selectedAbility.Generation.Name</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
             </section>
         </div>
     }
@@ -218,6 +257,8 @@
     private string? _spriteUrl;
     private CancellationTokenSource? _loadCts;
     private int _loadVersion;
+    private Ability? _selectedAbility;
+    private string? _selectedAbilityEffect;
 
     protected override Task OnParametersSetAsync()
     {
@@ -248,6 +289,23 @@
         Navigation.NavigateTo("/");
     }
 
+    private async Task OnAbilitySelectedAsync(string abilityName)
+    {
+        try
+        {
+            var ability = await PokemonApi.GetAbilityAsync(abilityName, _loadCts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+            if (ability is not null)
+            {
+                _selectedAbility = ability;
+                _selectedAbilityEffect = GetEnglishAbilityEffect(ability);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (_loadCts?.Token.IsCancellationRequested == true)
+        {
+        }
+    }
+
     private async Task LoadPokemonDetailAsync(string name, int loadVersion, CancellationToken cancellationToken)
     {
         try
@@ -260,28 +318,33 @@
             _spriteUrl = GetSpriteUrl(pokemon);
             await InvokeAsync(StateHasChanged);
 
+            // Start all data fetches in parallel
             var allPokemonTask = PokemonApi.GetAllPokemonAsync(cancellationToken);
             var speciesTask = PokemonApi.GetSpeciesAsync(pokemon.Species.Name, cancellationToken);
             var movesTask = BuildMoveSummariesAsync(pokemon, cancellationToken);
 
+            // Fire-and-forget: update sprite map in background
             _ = UpdateSpriteMapAsync(allPokemonTask, loadVersion, cancellationToken);
 
+            // Wait for species to load first (needed for evolution chain ID)
             _species = await speciesTask.ConfigureAwait(false);
             if (!IsCurrentLoad(loadVersion, cancellationToken))
                 return;
 
+            // Start evolution chain fetch (now we have the chain ID from species)
             var chainId = GetEvolutionChainId(_species);
             var evolutionTask = chainId is null
                 ? Task.FromResult<EvolutionChain?>(null)
                 : PokemonApi.GetEvolutionChainAsync(chainId.Value, cancellationToken);
 
-            _evolutionChain = await evolutionTask.ConfigureAwait(false);
-            await InvokeAsync(StateHasChanged);
+            // Wait for both evolution and moves in parallel
+            await Task.WhenAll(evolutionTask, movesTask).ConfigureAwait(false);
 
-            _moves = await movesTask.ConfigureAwait(false);
             if (!IsCurrentLoad(loadVersion, cancellationToken))
                 return;
 
+            _evolutionChain = await evolutionTask.ConfigureAwait(false);
+            _moves = await movesTask.ConfigureAwait(false);
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -296,6 +359,9 @@
     {
         try
         {
+            // Note: GetAllPokemonAsync returns empty since we moved to species-based approach
+            // For sprite map, we just use this Pokemon's base data and the API will render what's needed
+            // The sprites are loaded individually as needed during evolution chain rendering
             var allPokemon = await allPokemonTask.ConfigureAwait(false);
             if (!IsCurrentLoad(loadVersion, cancellationToken))
                 return;
@@ -390,6 +456,13 @@
             ?.FlavorText.Replace("\n", " ")
             .Replace("\f", " ")
             ?? "No Pokédex flavor text available.";
+    }
+
+    private static string? GetEnglishAbilityEffect(Ability ability)
+    {
+        return ability.EffectEntries
+            .FirstOrDefault(entry => string.Equals(entry.Language?.Name, "en", StringComparison.OrdinalIgnoreCase))
+            ?.Effect;
     }
 
     private static string? GetEnglishShortEffect(Move move)
@@ -864,6 +937,106 @@
         font-size: 0.7rem;
         font-weight: 700;
         letter-spacing: 0.3px;
+    }
+
+    .ability-pill-button {
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: capitalize;
+        transition: all 0.3s ease;
+        font-family: inherit;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .ability-pill-button.ability-normal {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+
+    .ability-pill-button.ability-normal:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .ability-pill-button.ability-hidden {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    .ability-pill-button.ability-hidden:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+    }
+
+    .ability-pill-button.ability-selected {
+        ring: 3px;
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5), inset 0 0 0 2px currentColor, 0 8px 16px rgba(0, 0, 0, 0.2);
+        transform: scale(1.05);
+    }
+
+    .ability-text {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .ability-detail-card {
+        display: grid;
+        gap: 1rem;
+        padding: 0.75rem;
+        background: var(--surface-alt);
+        border-radius: 0.75rem;
+        border: 1px solid var(--border);
+    }
+
+    .ability-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .ability-header h3 {
+        margin: 0;
+        text-transform: capitalize;
+        font-size: 1.1rem;
+    }
+
+    .ability-content {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .ability-effect,
+    .ability-generation {
+        display: grid;
+        gap: 0.5rem;
+    }
+
+    .ability-effect h4,
+    .ability-generation h4 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: var(--accent);
+    }
+
+    .ability-effect p,
+    .ability-generation p {
+        margin: 0;
+        line-height: 1.5;
+        text-transform: capitalize;
     }
 
     .form-pill {
