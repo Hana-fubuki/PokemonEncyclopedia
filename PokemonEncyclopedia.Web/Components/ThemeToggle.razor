@@ -1,0 +1,64 @@
+@rendermode InteractiveServer
+@inject PokemonThemeState ThemeState
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<button type="button" class="theme-toggle" @onclick="ToggleTheme" title="Toggle dark mode">
+    <span>@(ThemeState.IsDarkMode ? "☀️" : "🌙")</span>
+</button>
+
+@code {
+    public async ValueTask DisposeAsync()
+    {
+        ThemeState.Changed -= HandleThemeChanged;
+        GC.SuppressFinalize(this);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ThemeState.InitializeAsync(JSRuntime);
+        ThemeState.Changed += HandleThemeChanged;
+        StateHasChanged();
+    }
+
+    private async Task ToggleTheme()
+    {
+        await ThemeState.Toggle();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleThemeChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+}
+
+<style>
+    .theme-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+        padding: 0;
+        outline: none;
+        z-index: 101;
+    }
+
+    .theme-toggle:hover {
+        background: var(--surface-alt);
+        border-color: var(--accent);
+    }
+
+    .theme-toggle span {
+        display: flex;
+        align-items: center;
+    }
+</style>
