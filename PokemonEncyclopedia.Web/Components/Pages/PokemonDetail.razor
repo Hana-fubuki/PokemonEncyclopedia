@@ -192,6 +192,40 @@
                             </div>
                         </div>
 
+                        @if (_selectedAbility is not null)
+                        {
+                            <div class="ability-details-section">
+                                <h3>Ability Details</h3>
+                                <div class="ability-detail-card">
+                                    <div class="ability-header">
+                                        <h4>@_selectedAbility.Name</h4>
+                                        @if (_pokemon.Abilities.FirstOrDefault(a => a.Ability.Name == _selectedAbility.Name)?.IsHidden == true)
+                                        {
+                                            <span class="ability-badge">Hidden</span>
+                                        }
+                                    </div>
+                                    
+                                    <div class="ability-content">
+                                        @if (!string.IsNullOrWhiteSpace(_selectedAbilityEffect))
+                                        {
+                                            <div class="ability-effect">
+                                                <h5>Effect</h5>
+                                                <p>@_selectedAbilityEffect</p>
+                                            </div>
+                                        }
+
+                                        @if (_selectedAbility.Generation is not null)
+                                        {
+                                            <div class="ability-generation">
+                                                <h5>Introduced</h5>
+                                                <p>@_selectedAbility.Generation.Name</p>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
                         @if (_pokemon.Forms.Count > 0)
                         {
                             <div class="forms-section">
@@ -206,40 +240,6 @@
                         }
                     </div>
                 </div>
-
-                @if (_selectedAbility is not null)
-                {
-                    <div class="section-card">
-                        <h2>Ability details</h2>
-                        <div class="ability-detail-card">
-                            <div class="ability-header">
-                                <h3>@_selectedAbility.Name</h3>
-                                @if (_pokemon.Abilities.FirstOrDefault(a => a.Ability.Name == _selectedAbility.Name)?.IsHidden == true)
-                                {
-                                    <span class="ability-badge">Hidden</span>
-                                }
-                            </div>
-                            
-                            <div class="ability-content">
-                                @if (!string.IsNullOrWhiteSpace(_selectedAbilityEffect))
-                                {
-                                    <div class="ability-effect">
-                                        <h4>Effect</h4>
-                                        <p>@_selectedAbilityEffect</p>
-                                    </div>
-                                }
-
-                                @if (_selectedAbility.Generation is not null)
-                                {
-                                    <div class="ability-generation">
-                                        <h4>Introduced</h4>
-                                        <p>@_selectedAbility.Generation.Name</p>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                }
             </section>
         </div>
     }
