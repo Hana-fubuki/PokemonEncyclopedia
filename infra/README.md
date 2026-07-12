@@ -5,8 +5,10 @@ This directory contains the infrastructure definitions for deploying the Pokemon
 ## Architecture
 
 - **Azure Container Apps**: Hosts both the API and Web services with auto-scaling
-- **Redis Cache**: Provides caching for API responses and data
-- **Log Analytics**: Monitors container apps and collects logs
+- **Redis Cache**: Provides caching for API responses and data (Free tier: 250MB)
+- **Cosmos DB**: NoSQL database for storing application data (Free tier: 400 RU/s)
+- **Application Insights**: Application performance monitoring and telemetry (Free tier: 5GB/month)
+- **Log Analytics**: Centralized monitoring and log collection for all resources
 - **Managed Identity**: System-assigned identities for secure resource communication
 
 ## Prerequisites
@@ -148,8 +150,13 @@ Both services accept the following environment variables:
 
 - `ASPNETCORE_ENVIRONMENT`: Set to `Development` or `Production`
 - `ASPNETCORE_URLS`: Set to `http://+:8080`
+- `DEPLOYMENT_MODE`: Set to `azure` for cloud deployment
 - `REDIS_ENDPOINT`: Redis cache hostname and port
 - `REDIS_PASSWORD`: Redis cache access key
+- `COSMOS_CONNECTION_STRING`: Cosmos DB connection string (for Hangfire backend)
+- `APPLICATIONINSIGHTS_CONNECTION_STRING`: Application Insights connection string
+- `OTEL_EXPORTER_OTLP_ENDPOINT`: OpenTelemetry export endpoint
+- `OTEL_SERVICE_NAME`: Service identifier for telemetry
 - `APISERVICE_ENDPOINT`: (Web service only) API service endpoint URL
 
 ### Resource Sizing
@@ -157,11 +164,68 @@ Both services accept the following environment variables:
 Default resource allocations:
 - **API Service**: 0.5 CPU, 1GB RAM, 1-3 replicas
 - **Web Service**: 0.5 CPU, 1GB RAM, 1-3 replicas
-- **Redis Cache**: Standard tier, 250MB
+- **Redis Cache**: Standard tier, capacity 0 (250MB free tier)
+- **Cosmos DB**: Provisioned mode with free tier enabled (400 RU/s)
+- **Application Insights**: Free tier (5GB/month ingestion, 30-day retention)
+- **Log Analytics**: PerGB2018 SKU (30-day retention)
 
 Modify these in the template parameters or Terraform variables.
 
 ## Monitoring
+
+### Application Insights & Telemetry
+
+All services automatically send telemetry to Application Insights when the connection string is provided:
+
+```kusto
+# View all telemetry
+traces
+| order by timestamp desc
+| take 100
+
+# View exceptions
+exceptions
+| order by timestamp desc
+
+# View request performance
+requests
+| where name == "GET /api/pokemon"
+| summarize avg(duration), percentile(duration, 95) by name
+```
+
+### Log Analytics Queries
+
+#### Container Logs
+```kusto
+ContainerAppConsoleLogs
+| where ContainerAppName == "pokepedia-dev-api"
+| order by TimeGenerated desc
+| take 100
+```
+
+#### Cosmos DB Diagnostics
+```kusto
+AzureDiagnostics
+| where ResourceType == "COSMOSDB"
+| where OperationName == "Query"
+| summarize count() by OperationName
+```
+
+#### Redis Diagnostics
+```kusto
+AzureDiagnostics
+| where ResourceProvider == "MICROSOFT.CACHE"
+| order by TimeGenerated desc
+| take 50
+```
+
+### Application Insights
+
+Logs are automatically sent to Application Insights for monitoring. Access via:
+1. **Azure Portal**: Resource Group → Application Insights resource
+2. **Insights**: Application Insights Overview page
+3. **Logs (Analytics)**: Custom KQL queries
+4. **Live Metrics**: Real-time application telemetry
 
 ### View Container Logs
 
@@ -173,16 +237,6 @@ az container app logs show \
 
 # Using Azure Portal
 # Navigate to Container Apps > Logs
-```
-
-### Application Insights
-
-Logs are automatically sent to Log Analytics. Query using KQL:
-
-```kusto
-ContainerAppConsoleLogs
-| where ContainerAppName == "pokepedia-dev-api"
-| order by TimeGenerated desc
 ```
 
 ## Scaling
@@ -254,19 +308,68 @@ az container app logs show \
   --tail 100
 ```
 
-### Redis Connection Issues
+### Cosmos DB Connection Issues
 
 ```bash
-# Test Redis connectivity
-az redis show \
+# Get Cosmos DB endpoint
+az cosmosdb show \
   --resource-group pokepedia-dev-rg \
-  --name pokepedia-dev-redis
+  --name pokepedia-dev-cosmos \
+  --query documentEndpoint
 
 # Get connection string
-az redis list-keys \
+az cosmosdb keys list \
   --resource-group pokepedia-dev-rg \
-  --name pokepedia-dev-redis
+  --name pokepedia-dev-cosmos \
+  --type connection-strings
 ```
+
+### Application Insights Not Receiving Telemetry
+
+1. Verify the connection string is correctly passed:
+```bash
+az container app show \
+  --resource-group pokepedia-dev-rg \
+  --name pokepedia-dev-api \
+  --query properties.template.containers[0].env[?name=='APPLICATIONINSIGHTS_CONNECTION_STRING']
+```
+
+2. Check Application Insights logs for ingestion:
+   - Azure Portal → Application Insights → Logs
+   - Query: `traces | count`
+
+3. Verify services include Application Insights NuGet package:
+   - Microsoft.ApplicationInsights.AspNetCore (2.23.0+)
+
+## Free Tier Considerations
+
+All resources are configured to use Azure free tier offerings to minimize costs:
+
+### Cost Optimization
+- **Redis Cache**: Standard tier capacity 0 = 250MB free tier
+- **Cosmos DB**: Free tier enabled (400 RU/s provisioned throughput)
+- **Application Insights**: Free tier with 5GB/month ingestion cap
+- **Log Analytics**: 30-day retention (longer retention incurs costs)
+- **Container Apps**: Pay-per-use model with 1-3 replica scaling
+
+### Monitoring Free Tier Usage
+```bash
+# Check storage usage across resources
+az monitor metrics list \
+  --resource /subscriptions/{sub-id}/resourceGroups/pokepedia-dev-rg \
+  --metric-names StorageUsedSize
+
+# Check Application Insights ingestion
+az monitor app-insights component show \
+  --resource-group pokepedia-dev-rg \
+  --app pokepedia-dev-ai
+```
+
+### Cost Alerts
+Set up billing alerts in Azure Portal to monitor usage and ensure you stay within free tier limits:
+1. Cost Management + Billing → Budgets
+2. Create budget for resource group
+3. Set threshold to alert when free tier is exceeded
 
 ## Security Considerations
 
