@@ -18,6 +18,7 @@ public class PokemonCatalogService : IPokemonCatalogService
     private const string SpeciesCachePrefix = "pokemon:species:v1:";
     private const string EvolutionCachePrefix = "pokemon:evolution:v1:";
     private const int MaxConcurrentRequests = 8;
+    private const string AllSpeciesCacheKey = "pokemon:species:all:v1";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private readonly IDistributedCache _distributedCache;
     private readonly ILogger<PokemonCatalogService> _logger;
@@ -25,8 +26,10 @@ public class PokemonCatalogService : IPokemonCatalogService
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _warmupGate = new(1, 1);
     private IReadOnlyList<Pokemon>? _allPokemon;
+    private IReadOnlyList<PokemonSpecies>? _allSpecies;
     private IReadOnlyDictionary<string, Pokemon>? _pokemonByName;
     private string? _allPokemonJson;
+    private string? _allSpeciesJson;
     private IReadOnlyList<Move>? _allMoves;
     private string? _allMovesJson;
     private IReadOnlySet<string>? _legendaryPokemonNames;
@@ -59,6 +62,52 @@ public class PokemonCatalogService : IPokemonCatalogService
         _allPokemon = cachedPokemon;
         _pokemonByName = _allPokemon.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
         return _allPokemon;
+    }
+
+    public async Task<IReadOnlyList<PokemonSpecies>> GetAllPokemonSpeciesAsync(CancellationToken cancellationToken)
+    {
+        var cachedJson = await _distributedCache.GetStringAsync(AllSpeciesCacheKey, cancellationToken).ConfigureAwait(false);
+        if (cachedJson is not null)
+        {
+            var cachedSpecies = JsonSerializer.Deserialize<List<PokemonSpecies>>(cachedJson, SerializerOptions);
+            if (cachedSpecies is not null)
+            {
+                _allSpecies = cachedSpecies;
+                return _allSpecies;
+            }
+        }
+
+        // If not cached, fetch all Pokemon and get their species data
+        var allPokemon = await GetAllPokemonAsync(cancellationToken).ConfigureAwait(false);
+        var speciesList = new List<PokemonSpecies>();
+
+        using var throttler = new SemaphoreSlim(MaxConcurrentRequests);
+        foreach (var pokemon in allPokemon)
+        {
+            await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var species = await _pokeApiClient.GetResourceAsync<PokemonSpecies>(pokemon.Species.Name, cancellationToken)
+                    .ConfigureAwait(false);
+                if (species is not null)
+                    speciesList.Add(species);
+            }
+            finally
+            {
+                throttler.Release();
+            }
+        }
+
+        _allSpecies = speciesList.AsReadOnly();
+        _allSpeciesJson = JsonSerializer.Serialize(_allSpecies, SerializerOptions);
+
+        await _distributedCache.SetStringAsync(
+            AllSpeciesCacheKey,
+            _allSpeciesJson,
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = null },
+            cancellationToken).ConfigureAwait(false);
+
+        return _allSpecies;
     }
 
     public async Task<IReadOnlyList<Pokemon>> GetAllBasePokemonAsync(CancellationToken cancellationToken)

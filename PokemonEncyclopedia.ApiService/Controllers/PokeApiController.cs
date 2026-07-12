@@ -16,8 +16,8 @@ namespace PokemonEncyclopedia.ApiService.Controllers;
 public class PokeApiController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<Pokemon>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<Pokemon>>> GetAllPokemon(CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(IReadOnlyList<PokemonSpecies>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<PokemonSpecies>>> GetAllPokemon(CancellationToken cancellationToken)
     {
         var pokemon = await mediator.Send(new GetAllPokemonQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(pokemon);

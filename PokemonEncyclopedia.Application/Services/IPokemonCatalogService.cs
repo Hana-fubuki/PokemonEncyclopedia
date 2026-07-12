@@ -13,6 +13,8 @@ public interface IPokemonCatalogService
 
     Task<IReadOnlyList<Pokemon>> GetAllPokemonAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<PokemonSpecies>> GetAllPokemonSpeciesAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Pokemon>> GetAllBasePokemonAsync(CancellationToken cancellationToken);
 
     Task RefreshAllPokemonAsync(CancellationToken cancellationToken);
