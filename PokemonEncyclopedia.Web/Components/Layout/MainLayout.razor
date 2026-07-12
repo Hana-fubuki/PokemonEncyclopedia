@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject PokemonThemeState ThemeState
 
 <div class="page @(ThemeState.IsDarkMode ? "theme-dark" : "theme-light")">
@@ -26,6 +27,22 @@
 </div>
 
 @code {
+    protected override Task OnInitializedAsync()
+    {
+        ThemeState.Changed += HandleThemeChanged;
+        return Task.CompletedTask;
+    }
+
+    private void HandleThemeChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThemeState.Changed -= HandleThemeChanged;
+        GC.SuppressFinalize(this);
+    }
 }
 
 <style>
