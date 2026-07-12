@@ -170,6 +170,8 @@
 
                 <div class="section-card">
                     <h2>Varieties</h2>
+                    <!-- Debug info -->
+                    <div style="font-size: 0.8em; color: #999; margin-bottom: 1em;">DEBUG: Count=@_varieties.Count | IsNull=@(_varieties is null)</div>
                     @if (_varieties.Count == 0)
                     {
                         <p class="muted">No varieties available.</p>
@@ -389,6 +391,12 @@
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Load was cancelled, this is expected when navigating away
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading Pokemon detail for {name}: {ex.Message}");
+            // Silently fail - let the UI show what was loaded before the error
         }
     }
 

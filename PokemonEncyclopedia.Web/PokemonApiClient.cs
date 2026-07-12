@@ -189,28 +189,46 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
         var sw = Stopwatch.StartNew();
         var varieties = new List<Pokemon>();
-        var species = await GetSpeciesAsync(normalizedName, cancellationToken).ConfigureAwait(false);
         
-        if (species?.Varieties is not null && species.Varieties.Count > 0)
+        try
         {
-            foreach (var variety in species.Varieties)
+            var species = await GetSpeciesAsync(normalizedName, cancellationToken).ConfigureAwait(false);
+            
+            if (species?.Varieties is not null && species.Varieties.Count > 0)
             {
-                if (variety.Pokemon?.Name is not null)
+                foreach (var variety in species.Varieties)
                 {
-                    var pokemon = await GetPokemonAsync(variety.Pokemon.Name, cancellationToken).ConfigureAwait(false);
-                    if (pokemon is not null)
+                    if (variety.Pokemon?.Name is not null)
                     {
-                        varieties.Add(pokemon);
+                        try
+                        {
+                            var pokemon = await GetPokemonAsync(variety.Pokemon.Name, cancellationToken).ConfigureAwait(false);
+                            if (pokemon is not null)
+                            {
+                                varieties.Add(pokemon);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error fetching variety {variety.Pokemon.Name}: {ex.Message}");
+                            // Continue with next variety if one fails
+                        }
                     }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error fetching varieties for species {normalizedName}: {ex.Message}");
+            // Return empty list if species fetch fails
         }
 
         sw.Stop();
         var varietiesList = (IReadOnlyList<Pokemon>)varieties.AsReadOnly();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("client.operation", "varieties"),
-            new KeyValuePair<string, object?>("species.name", normalizedName));
+            new KeyValuePair<string, object?>("species.name", normalizedName),
+            new KeyValuePair<string, object?>("varieties.count", varieties.Count));
         
         if (varieties.Count > 0)
             cache.Set(cacheKey, varietiesList, CacheDuration);
