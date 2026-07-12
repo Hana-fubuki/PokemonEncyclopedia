@@ -1,7 +1,5 @@
 @page "/"
 @rendermode InteractiveServer
-@attribute [StreamRendering(true)]
-@attribute [OutputCache(Duration = 300)]
 @implements IDisposable
 @inject PokemonApiClient PokemonApi
 @inject PokemonFilterState FilterState
@@ -130,9 +128,15 @@
     protected override async Task OnInitializedAsync()
     {
         FilterState.Changed += HandleFilterChanged;
-        _pokemon = await PokemonApi.GetAllPokemonAsync();
-        _legendaryPokemonNames = await PokemonApi.GetLegendaryPokemonNamesAsync();
+        var pokemonTask = PokemonApi.GetAllPokemonAsync();
+        var legendaryTask = PokemonApi.GetLegendaryPokemonNamesAsync();
+        
+        await Task.WhenAll(pokemonTask, legendaryTask).ConfigureAwait(false);
+        
+        _pokemon = await pokemonTask.ConfigureAwait(false);
+        _legendaryPokemonNames = await legendaryTask.ConfigureAwait(false);
         ApplyFilters();
+        await InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
