@@ -195,7 +195,6 @@
                         @if (_selectedAbility is not null)
                         {
                             <div class="ability-details-section">
-                                <h3>Ability Details</h3>
                                 <div class="ability-detail-card">
                                     <div class="ability-header">
                                         <h4>@_selectedAbility.Name</h4>
@@ -999,6 +998,11 @@
         border: 1px solid var(--border);
     }
 
+    .ability-details-section {
+        grid-column: 1;
+        margin-left: -0.5rem;
+    }
+
     .ability-header {
         display: flex;
         align-items: center;
@@ -1006,6 +1010,12 @@
     }
 
     .ability-header h3 {
+        margin: 0;
+        text-transform: capitalize;
+        font-size: 1.1rem;
+    }
+
+    .ability-header h4 {
         margin: 0;
         text-transform: capitalize;
         font-size: 1.1rem;
@@ -1024,6 +1034,16 @@
 
     .ability-effect h4,
     .ability-generation h4 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: var(--accent);
+    }
+
+    .ability-effect h5,
+    .ability-generation h5 {
         margin: 0;
         font-size: 0.95rem;
         font-weight: 700;
