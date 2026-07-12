@@ -240,6 +240,11 @@ resource "azurerm_container_app" "api" {
       }
 
       env {
+        name  = "DEPLOYMENT_MODE"
+        value = "azure"
+      }
+
+      env {
         name  = "REDIS_ENDPOINT"
         value = "${azurerm_redis_cache.redis.hostname}:${azurerm_redis_cache.redis.port}"
       }
@@ -309,6 +314,11 @@ resource "azurerm_container_app" "web" {
       env {
         name  = "ASPNETCORE_ENVIRONMENT"
         value = var.environment
+      }
+
+      env {
+        name  = "DEPLOYMENT_MODE"
+        value = "azure"
       }
 
       env {

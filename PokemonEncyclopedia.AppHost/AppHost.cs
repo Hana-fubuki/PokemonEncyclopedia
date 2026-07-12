@@ -2,10 +2,18 @@ using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var cache = builder.AddAzureManagedRedis("cache")
-    .RunAsContainer(redis => redis
-        .WithDataVolume()
-        .WithLifetime(ContainerLifetime.Persistent));
+// Determine deployment mode
+var deploymentMode = builder.Configuration["DEPLOYMENT_MODE"] ?? "local";
+var isAzureDeployment = deploymentMode.Equals("azure", StringComparison.OrdinalIgnoreCase);
+
+// Configure Redis - use Azure or local
+var cache = isAzureDeployment
+    ? builder.AddAzureManagedRedis("cache")
+    : builder.AddAzureManagedRedis("cache")
+        .RunAsContainer(redis => redis
+            .WithDataVolume()
+            .WithLifetime(ContainerLifetime.Persistent));
+
 var cosmos = builder.AddAzureCosmosDB("cosmos")
     .RunAsEmulator(emulator => emulator
         .WithDataVolume()
@@ -19,7 +27,8 @@ var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice"
     .WaitFor(cache)
     .WithReference(hangfireDb)
     .WaitFor(hangfireDb)
-    .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", isAzureDeployment ? "Production" : "Development")
+    .WithEnvironment("DEPLOYMENT_MODE", deploymentMode)
     .WithCommand(
         "open-swagger",
         "Open Swagger",
@@ -60,7 +69,8 @@ builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
     .WithReference(cache)
     .WaitFor(cache)
     .WithReference(apiService)
-    .WaitFor(apiService);
+    .WaitFor(apiService)
+    .WithEnvironment("DEPLOYMENT_MODE", deploymentMode);
 
 builder.Build().Run();
 

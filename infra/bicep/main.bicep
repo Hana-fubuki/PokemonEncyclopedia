@@ -134,6 +134,10 @@ resource apiService 'Microsoft.App/containerApps@2023-11-02-preview' = {
               value: environment
             }
             {
+              name: 'DEPLOYMENT_MODE'
+              value: 'azure'
+            }
+            {
               name: 'REDIS_ENDPOINT'
               value: '${redisCache.properties.hostName}:${redisCache.properties.port}'
             }
@@ -219,6 +223,10 @@ resource webService 'Microsoft.App/containerApps@2023-11-02-preview' = {
             {
               name: 'ASPNETCORE_ENVIRONMENT'
               value: environment
+            }
+            {
+              name: 'DEPLOYMENT_MODE'
+              value: 'azure'
             }
             {
               name: 'ASPNETCORE_URLS'
