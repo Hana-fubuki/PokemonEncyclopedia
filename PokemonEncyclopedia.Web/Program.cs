@@ -1,11 +1,13 @@
 using PokemonEncyclopedia.Web;
 using PokemonEncyclopedia.Web.Components;
+using Aspire.Seq;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
 builder.AddRedisOutputCache("cache");
+builder.AddSeqEndpoint("seq");
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
