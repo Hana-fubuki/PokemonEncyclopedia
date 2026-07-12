@@ -23,6 +23,8 @@ public class PokemonCatalogWarmupHostedService : BackgroundService
         try
         {
             await _pokemonCatalogService.GetAllPokemonAsync(stoppingToken).ConfigureAwait(false);
+            await _pokemonCatalogService.GetAllMovesAsync(stoppingToken).ConfigureAwait(false);
+            await _pokemonCatalogService.WarmupPokemonSpeciesAsync(stoppingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

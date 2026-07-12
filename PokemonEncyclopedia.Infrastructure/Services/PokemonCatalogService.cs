@@ -12,6 +12,8 @@ namespace PokemonEncyclopedia.Infrastructure.Services;
 public class PokemonCatalogService : IPokemonCatalogService
 {
     private const string AllPokemonCacheKey = "pokemon:all:v1";
+    private const string AllMovesCacheKey = "pokemon:moves:all:v1";
+    private const string LegendaryPokemonCacheKey = "pokemon:legendary:v1";
     private const string MoveCachePrefix = "pokemon:move:v1:";
     private const string SpeciesCachePrefix = "pokemon:species:v1:";
     private const string EvolutionCachePrefix = "pokemon:evolution:v1:";
@@ -20,17 +22,23 @@ public class PokemonCatalogService : IPokemonCatalogService
     private readonly IDistributedCache _distributedCache;
     private readonly ILogger<PokemonCatalogService> _logger;
     private readonly PokeApiClient _pokeApiClient;
+    private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _warmupGate = new(1, 1);
     private IReadOnlyList<Pokemon>? _allPokemon;
     private IReadOnlyDictionary<string, Pokemon>? _pokemonByName;
     private string? _allPokemonJson;
+    private IReadOnlyList<Move>? _allMoves;
+    private string? _allMovesJson;
+    private IReadOnlySet<string>? _legendaryPokemonNames;
 
     public PokemonCatalogService(
         PokeApiClient pokeApiClient,
+        HttpClient httpClient,
         IDistributedCache distributedCache,
         ILogger<PokemonCatalogService> logger)
     {
         _pokeApiClient = pokeApiClient;
+        _httpClient = httpClient;
         _distributedCache = distributedCache;
         _logger = logger;
     }
@@ -51,6 +59,13 @@ public class PokemonCatalogService : IPokemonCatalogService
         _allPokemon = cachedPokemon;
         _pokemonByName = _allPokemon.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
         return _allPokemon;
+    }
+
+    public async Task<IReadOnlyList<Pokemon>> GetAllBasePokemonAsync(CancellationToken cancellationToken)
+    {
+        var allPokemon = await GetAllPokemonAsync(cancellationToken).ConfigureAwait(false);
+        // Return only base forms (no variants/regional forms with dashes in names)
+        return allPokemon.Where(p => !p.Name.Contains('-')).ToArray();
     }
 
     public async Task RefreshAllPokemonAsync(CancellationToken cancellationToken)
@@ -154,6 +169,77 @@ public class PokemonCatalogService : IPokemonCatalogService
         return resources;
     }
 
+    public async Task<IReadOnlyList<Move>> GetAllMovesAsync(CancellationToken cancellationToken)
+    {
+        var cachedJson = await GetAllMovesJsonAsync(forceRefresh: false, cancellationToken).ConfigureAwait(false);
+        if (_allMoves is not null) return _allMoves;
+
+        var cachedMoves = JsonSerializer.Deserialize<List<Move>>(cachedJson, SerializerOptions);
+        if (cachedMoves is null)
+            throw new InvalidOperationException("Unable to deserialize cached moves JSON.");
+
+        _allMoves = cachedMoves;
+        return _allMoves;
+    }
+
+    public async Task<IReadOnlySet<string>> GetLegendaryPokemonNamesAsync(CancellationToken cancellationToken)
+    {
+        if (_legendaryPokemonNames is not null)
+            return _legendaryPokemonNames;
+
+        var pokemon = await GetAllPokemonAsync(cancellationToken).ConfigureAwait(false);
+        var legendaryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        using var throttler = new SemaphoreSlim(MaxConcurrentRequests);
+        var speciesTasks = pokemon.Select(async p =>
+        {
+            await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var species = await GetPokemonSpeciesByNameAsync(p.Species.Name, cancellationToken).ConfigureAwait(false);
+                return (name: p.Name, isLegendary: species?.IsLegendary ?? false);
+            }
+            finally
+            {
+                throttler.Release();
+            }
+        });
+
+        var results = await Task.WhenAll(speciesTasks).ConfigureAwait(false);
+        foreach (var result in results.Where(r => r.isLegendary))
+        {
+            legendaryNames.Add(result.name);
+        }
+
+        _legendaryPokemonNames = legendaryNames;
+        _logger.LogInformation("Legendary Pokémon names cached. Count={Count}", legendaryNames.Count);
+        return _legendaryPokemonNames;
+    }
+
+    public async Task WarmupPokemonSpeciesAsync(CancellationToken cancellationToken)
+    {
+        var pokemon = await GetAllPokemonAsync(cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Warming Pokémon species data. Count={Count}", pokemon.Count);
+
+        using var throttler = new SemaphoreSlim(MaxConcurrentRequests);
+        var speciesTasks = pokemon.Select(async p =>
+        {
+            await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await GetPokemonSpeciesByNameAsync(p.Species.Name, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                throttler.Release();
+            }
+        });
+
+        var results = await Task.WhenAll(speciesTasks).ConfigureAwait(false);
+        var successCount = results.Count(r => r is not null);
+        _logger.LogInformation("Pokémon species data warmed. Count={Count}", successCount);
+    }
+
     private async Task<string> GetAllPokemonJsonAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
         if (!forceRefresh && !string.IsNullOrWhiteSpace(_allPokemonJson)) return _allPokemonJson;
@@ -180,31 +266,82 @@ public class PokemonCatalogService : IPokemonCatalogService
                 ? "Refreshing Pokémon catalog cache"
                 : "Warming Pokémon catalog cache");
 
-            var resources = new List<NamedApiResource<Pokemon>>();
-            await foreach (var resource in _pokeApiClient.GetAllNamedResourcesAsync<Pokemon>(cancellationToken)
-                               .WithCancellation(cancellationToken)
-                               .ConfigureAwait(false))
+            // Fetch species names directly from pokemon-species endpoint  
+            var speciesNames = new List<string>();
+            int offset = 0;
+            const int limit = 5000;
+            const string pokeApiBaseUrl = "https://pokeapi.co/api/v2/";
+            
+            try
             {
-                resources.Add(resource);
+                while (true)
+                {
+                    var url = $"{pokeApiBaseUrl}pokemon-species?limit={limit}&offset={offset}";
+                    _logger.LogDebug("Fetching from {Url}", url);
+                    
+                    var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken)
+                        .ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+                    
+                    var jsonContent = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                    using var jsonDoc = JsonDocument.Parse(jsonContent);
+                    var root = jsonDoc.RootElement;
+                    
+                    if (!root.TryGetProperty("results", out var resultsElement))
+                        break;
+                    
+                    var resultsArray = resultsElement.EnumerateArray().ToList();
+                    if (resultsArray.Count == 0)
+                        break;
+
+                    foreach (var result in resultsArray)
+                    {
+                        if (result.TryGetProperty("name", out var nameElement) && nameElement.GetString() is string name)
+                        {
+                            speciesNames.Add(name);
+                        }
+                    }
+                    
+                    _logger.LogInformation("Fetched {Count} species so far (offset: {Offset})", speciesNames.Count, offset);
+                    
+                    if (resultsArray.Count < limit)
+                        break;
+                    
+                    offset += resultsArray.Count;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching pokemon-species from PokeAPI");
+                throw;
             }
 
-            using var throttler = new SemaphoreSlim(MaxConcurrentRequests);
-            var pokemonTasks = resources.Select(async resource =>
+            _logger.LogInformation("Total species fetched from pokemon-species endpoint: {Count}", speciesNames.Count);
+
+            // Fetch the full Pokemon object for each species
+            var pokemonList = new List<Pokemon>();
+            using var pokemonThrottler = new SemaphoreSlim(MaxConcurrentRequests);
+            foreach (var speciesName in speciesNames)
             {
-                await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
+                await pokemonThrottler.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    return await _pokeApiClient.GetResourceAsync<Pokemon>(resource.Name, cancellationToken)
+                    var pokemon = await _pokeApiClient.GetResourceAsync<Pokemon>(speciesName, cancellationToken)
                         .ConfigureAwait(false);
+                    if (pokemon is not null)
+                        pokemonList.Add(pokemon);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch pokemon {SpeciesName}", speciesName);
                 }
                 finally
                 {
-                    throttler.Release();
+                    pokemonThrottler.Release();
                 }
-            });
+            }
 
-            var pokemon = await Task.WhenAll(pokemonTasks).ConfigureAwait(false);
-            _allPokemon = pokemon.OrderBy(p => p.Id).ToArray();
+            _allPokemon = pokemonList.OrderBy(p => p.Id).ToArray();
             _pokemonByName = _allPokemon.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
             _allPokemonJson = JsonSerializer.Serialize(_allPokemon, SerializerOptions);
 
@@ -213,7 +350,7 @@ public class PokemonCatalogService : IPokemonCatalogService
                 _allPokemonJson,
                 new DistributedCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12)
+                    AbsoluteExpirationRelativeToNow = null
                 },
                 cancellationToken).ConfigureAwait(false);
 
@@ -236,6 +373,89 @@ public class PokemonCatalogService : IPokemonCatalogService
         {
             _warmupGate.Release();
         }
+    }
+
+    private async Task<string> GetAllMovesJsonAsync(bool forceRefresh, CancellationToken cancellationToken)
+    {
+       if (!forceRefresh && !string.IsNullOrWhiteSpace(_allMovesJson)) return _allMovesJson;
+
+       await _warmupGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+       try
+       {
+           if (!forceRefresh && !string.IsNullOrWhiteSpace(_allMovesJson)) return _allMovesJson;
+
+           if (!forceRefresh)
+           {
+               var cachedJson = await _distributedCache.GetStringAsync(AllMovesCacheKey, cancellationToken)
+                   .ConfigureAwait(false);
+               if (!string.IsNullOrWhiteSpace(cachedJson))
+               {
+                   _allMovesJson = cachedJson;
+                   LastWarmupError = null;
+                   _logger.LogInformation("Loaded moves catalog from Redis cache");
+                   return _allMovesJson;
+               }
+           }
+
+           _logger.LogInformation(forceRefresh
+               ? "Refreshing moves catalog cache"
+               : "Warming moves catalog cache");
+
+           var resources = new List<NamedApiResource<Move>>();
+           await foreach (var resource in _pokeApiClient.GetAllNamedResourcesAsync<Move>(cancellationToken)
+                              .WithCancellation(cancellationToken)
+                              .ConfigureAwait(false))
+           {
+               resources.Add(resource);
+           }
+
+           using var throttler = new SemaphoreSlim(MaxConcurrentRequests);
+           var moveTasks = resources.Select(async resource =>
+           {
+               await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
+               try
+               {
+                   return await _pokeApiClient.GetResourceAsync<Move>(resource.Name, cancellationToken)
+                       .ConfigureAwait(false);
+               }
+               finally
+               {
+                   throttler.Release();
+               }
+           });
+
+           var moves = await Task.WhenAll(moveTasks).ConfigureAwait(false);
+           _allMoves = moves.OrderBy(m => m.Id).ToArray();
+           _allMovesJson = JsonSerializer.Serialize(_allMoves, SerializerOptions);
+
+           await _distributedCache.SetStringAsync(
+               AllMovesCacheKey,
+               _allMovesJson,
+               new DistributedCacheEntryOptions
+               {
+                   AbsoluteExpirationRelativeToNow = null
+               },
+               cancellationToken).ConfigureAwait(false);
+
+           LastWarmupError = null;
+
+           _logger.LogInformation("Moves catalog cache warmed. Count={Count}", _allMoves.Count);
+           return _allMovesJson;
+       }
+       catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+       {
+           throw;
+       }
+       catch (Exception ex)
+       {
+           LastWarmupError = ex;
+           _logger.LogError(ex, "Failed to warm moves catalog cache");
+           throw;
+       }
+       finally
+       {
+           _warmupGate.Release();
+       }
     }
 
     private static (int MinId, int MaxId) GetGenerationDexRange(int generation)
@@ -275,7 +495,7 @@ public class PokemonCatalogService : IPokemonCatalogService
             json,
             new DistributedCacheEntryOptions
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12)
+                AbsoluteExpirationRelativeToNow = null
             },
             cancellationToken).ConfigureAwait(false);
 

@@ -1,32 +1,38 @@
 @using System.Globalization
 @using PokeApiNet
 
-<div class="evolution-node">
+<div class="evolution-container">
     <div class="evolution-card">
-        <div class="evolution-sprite">
-            @if (!string.IsNullOrWhiteSpace(SpriteUrl))
-            {
-                <img src="@SpriteUrl" alt="@Node.Species.Name sprite" loading="lazy" />
-            }
-            else
-            {
-                <div class="sprite-placeholder">No sprite</div>
-            }
+        <div class="evolution-header">
+            <div class="evolution-sprite">
+                @if (!string.IsNullOrWhiteSpace(SpriteUrl))
+                {
+                    <img src="@SpriteUrl" alt="@Node.Species.Name sprite" loading="lazy" />
+                }
+                else
+                {
+                    <div class="sprite-placeholder">No sprite</div>
+                }
+            </div>
+
+            <div class="evolution-info">
+                <div class="evolution-name">@Node.Species.Name</div>
+                @if (Node.IsBaby)
+                {
+                    <div class="evolution-stage">Baby Form</div>
+                }
+            </div>
         </div>
-
-        <div class="evolution-name">@Node.Species.Name</div>
-
-        @if (Node.IsBaby)
-        {
-            <div class="evolution-badge">Baby</div>
-        }
 
         @if (Node.EvolutionDetails.Count > 0)
         {
-            <div class="evolution-requirements">
+            <div class="evolution-conditions">
                 @foreach (var detail in Node.EvolutionDetails)
                 {
-                    <span class="evolution-chip">@FormatDetail(detail)</span>
+                    <div class="condition">
+                        <span class="condition-icon">→</span>
+                        <span class="condition-text">@FormatDetail(detail)</span>
+                    </div>
                 }
             </div>
         }
@@ -34,7 +40,8 @@
 
     @if (Node.EvolvesTo.Count > 0)
     {
-        <div class="evolution-children">
+        <div class="evolution-arrow">↓</div>
+        <div class="evolution-branches">
             @foreach (var child in Node.EvolvesTo)
             {
                 <PokemonEvolutionNode Node="child" SpriteMap="SpriteMap" />
@@ -117,79 +124,132 @@
 }
 
 <style>
-    .evolution-node {
-        display: grid;
-        gap: 1rem;
+    .evolution-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
     }
 
     .evolution-card {
         border: 1px solid var(--border);
-        border-radius: 1rem;
+        border-radius: 1.25rem;
         background: var(--surface);
-        padding: 1rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-        text-align: center;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        width: 100%;
+        max-width: 280px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .evolution-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .evolution-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
     }
 
     .evolution-sprite {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 140px;
-        background: linear-gradient(180deg, var(--surface), var(--surface-alt));
-        border-radius: 0.75rem;
-        margin-bottom: 0.75rem;
+        width: 160px;
+        height: 160px;
+        background: linear-gradient(135deg, var(--surface), var(--surface-alt));
+        border-radius: 1rem;
+        border: 2px solid rgba(148, 163, 184, 0.2);
     }
 
     .evolution-sprite img {
         max-width: 100%;
-        max-height: 120px;
+        max-height: 140px;
+        object-fit: contain;
     }
 
     .sprite-placeholder {
         color: var(--muted);
+        font-size: 0.875rem;
+    }
+
+    .evolution-info {
+        text-align: center;
+        width: 100%;
     }
 
     .evolution-name {
         text-transform: capitalize;
-        font-weight: 700;
-        font-size: 1rem;
+        font-weight: 800;
+        font-size: 1.125rem;
+        letter-spacing: 0.3px;
     }
 
-    .evolution-badge {
-        display: inline-flex;
+    .evolution-stage {
+        display: inline-block;
         margin-top: 0.5rem;
-        padding: 0.2rem 0.55rem;
+        padding: 0.25rem 0.75rem;
         border-radius: 999px;
-        background: var(--accent);
-        color: var(--accent-foreground);
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        color: white;
         font-size: 0.75rem;
         font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
-    .evolution-requirements {
+    .evolution-conditions {
         display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        justify-content: center;
-        margin-top: 0.75rem;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 2px solid rgba(148, 163, 184, 0.15);
     }
 
-    .evolution-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.25rem 0.55rem;
-        border-radius: 999px;
-        background: rgba(148, 163, 184, 0.2);
-        color: var(--text);
-        font-size: 0.75rem;
+    .condition {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
     }
 
-    .evolution-children {
+    .condition-icon {
+        flex-shrink: 0;
+        color: #6366f1;
+        font-weight: bold;
+    }
+
+    .condition-text {
+        flex: 1;
+        line-height: 1.4;
+    }
+
+    .evolution-arrow {
+        font-size: 1.5rem;
+        color: #6366f1;
+        font-weight: bold;
+        opacity: 0.6;
+    }
+
+    .evolution-branches {
         display: grid;
-        gap: 1rem;
-        padding-left: 1rem;
-        border-left: 2px solid var(--border);
-        margin-left: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        width: 100%;
+    }
+
+    @@media (max-width: 640px) {
+        .evolution-branches {
+            grid-template-columns: 1fr;
+        }
+
+        .evolution-card {
+            max-width: 100%;
+        }
     }
 </style>

@@ -3,6 +3,7 @@ namespace PokemonEncyclopedia.Web;
 public sealed class PokemonFilterState
 {
     private string _searchText = string.Empty;
+    private bool _includeLegendary = true;
 
     public PokemonFilterState()
     {
@@ -24,6 +25,19 @@ public sealed class PokemonFilterState
                 return;
 
             _searchText = normalized;
+            Changed?.Invoke();
+        }
+    }
+
+    public bool IncludeLegendary
+    {
+        get => _includeLegendary;
+        set
+        {
+            if (_includeLegendary == value)
+                return;
+
+            _includeLegendary = value;
             Changed?.Invoke();
         }
     }
@@ -58,6 +72,7 @@ public sealed class PokemonFilterState
         }
 
         SelectedTypes.Clear();
+        _includeLegendary = true;
         Changed?.Invoke();
     }
 }

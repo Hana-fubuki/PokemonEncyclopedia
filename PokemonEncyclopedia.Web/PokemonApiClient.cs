@@ -10,6 +10,7 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
     private const string AllPokemonCacheKey = "pokemon:all";
+    private const string LegendaryPokemonCacheKey = "pokemon:legendary";
 
     public async Task<IReadOnlyList<Pokemon>> GetAllPokemonAsync(CancellationToken cancellationToken = default)
     {
@@ -120,5 +121,21 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             cache.Set(cacheKey, chain, CacheDuration);
 
         return chain;
+    }
+
+    public async Task<IReadOnlySet<string>> GetLegendaryPokemonNamesAsync(CancellationToken cancellationToken = default)
+    {
+        var sw = Stopwatch.StartNew();
+        var legendaryNames = await cache.GetOrCreateAsync(LegendaryPokemonCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            var response = await httpClient.GetFromJsonAsync<HashSet<string>>("/api/PokeApi/legendary", cancellationToken)
+                .ConfigureAwait(false);
+            return (IReadOnlySet<string>)(response ?? new HashSet<string>());
+        }).ConfigureAwait(false) ?? new HashSet<string>();
+        sw.Stop();
+        Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("client.operation", "legendary-pokemon"));
+        return legendaryNames;
     }
 }

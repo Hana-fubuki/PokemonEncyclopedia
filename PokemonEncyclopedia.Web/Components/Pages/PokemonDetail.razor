@@ -110,53 +110,48 @@
                     }
                     else
                     {
-                        <div class="moves-grid">
-                            @foreach (var move in _moves)
-                            {
-                                <article class="move-card">
-                                    <div class="move-header">
-                                        <div>
-                                            <div class="move-level">@move.LevelLabel</div>
-                                            <h3>@move.Name</h3>
-                                        </div>
-
-                                        @if (!string.IsNullOrWhiteSpace(move.Move?.Type?.Name))
-                                        {
-                                            <span class="type-pill type-@move.Move.Type.Name">@move.Move.Type.Name</span>
-                                        }
-                                    </div>
-
-                                    @if (move.Move is not null)
+                        <div class="table-wrapper">
+                            <table class="moves-table">
+                                <thead>
+                                    <tr>
+                                        <th>Level</th>
+                                        <th>Move Name</th>
+                                        <th>Type</th>
+                                        <th>Category</th>
+                                        <th>Power</th>
+                                        <th>Accuracy</th>
+                                        <th>PP</th>
+                                        <th>Learn Methods</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var move in _moves)
                                     {
-                                        <dl class="move-meta">
-                                            <dt>Damage class</dt>
-                                            <dd>@DisplayName(move.Move.DamageClass?.Name)</dd>
-                                            <dt>Power</dt>
-                                            <dd>@(move.Move.Power?.ToString() ?? "—")</dd>
-                                            <dt>Accuracy</dt>
-                                            <dd>@(move.Move.Accuracy?.ToString() ?? "—")</dd>
-                                            <dt>PP</dt>
-                                            <dd>@(move.Move.Pp?.ToString() ?? "—")</dd>
-                                            <dt>Priority</dt>
-                                            <dd>@move.Move.Priority</dd>
-                                            <dt>Target</dt>
-                                            <dd>@DisplayName(move.Move.Target?.Name)</dd>
-                                        </dl>
-
-                                        @if (!string.IsNullOrWhiteSpace(GetEnglishShortEffect(move.Move)))
-                                        {
-                                            <p class="move-effect">@GetEnglishShortEffect(move.Move)</p>
-                                        }
+                                        <tr>
+                                            <td class="level-cell">@move.LevelLabel</td>
+                                            <td class="name-cell">@move.Name</td>
+                                            <td class="type-cell">
+                                                @if (!string.IsNullOrWhiteSpace(move.Move?.Type?.Name))
+                                                {
+                                                    <span class="type-pill type-@move.Move.Type.Name">@move.Move.Type.Name</span>
+                                                }
+                                            </td>
+                                            <td class="category-cell">@DisplayName(move.Move?.DamageClass?.Name)</td>
+                                            <td class="power-cell">@(move.Move?.Power?.ToString() ?? "—")</td>
+                                            <td class="accuracy-cell">@(move.Move?.Accuracy?.ToString() ?? "—")%</td>
+                                            <td class="pp-cell">@(move.Move?.Pp?.ToString() ?? "—")</td>
+                                            <td class="methods-cell">
+                                                <div class="move-chips">
+                                                    @foreach (var method in move.Methods)
+                                                    {
+                                                        <span class="move-chip">@method</span>
+                                                    }
+                                                </div>
+                                            </td>
+                                        </tr>
                                     }
-
-                                    <div class="move-chips">
-                                        @foreach (var method in move.Methods)
-                                        {
-                                            <span class="move-chip">@method</span>
-                                        }
-                                    </div>
-                                </article>
-                            }
+                                </tbody>
+                            </table>
                         </div>
                     }
                 </div>
@@ -175,25 +170,35 @@
 
                 <div class="section-card">
                     <h2>Abilities and forms</h2>
-                    <div class="info-grid">
-                        <div>
+                    <div class="abilities-forms-container">
+                        <div class="abilities-section">
                             <h3>Abilities</h3>
-                            <ul class="plain-list">
+                            <div class="abilities-list">
                                 @foreach (var ability in _pokemon.Abilities)
                                 {
-                                    <li>@ability.Ability.Name</li>
+                                    <span class="ability-pill @(ability.IsHidden ? "ability-hidden" : "ability-normal")">
+                                        @ability.Ability.Name
+                                        @if (ability.IsHidden)
+                                        {
+                                            <span class="ability-badge">Hidden</span>
+                                        }
+                                    </span>
                                 }
-                            </ul>
+                            </div>
                         </div>
-                        <div>
-                            <h3>Forms</h3>
-                            <ul class="plain-list">
-                                @foreach (var form in _pokemon.Forms)
-                                {
-                                    <li>@form.Name</li>
-                                }
-                            </ul>
-                        </div>
+
+                        @if (_pokemon.Forms.Count > 0)
+                        {
+                            <div class="forms-section">
+                                <h3>Forms</h3>
+                                <div class="forms-list">
+                                    @foreach (var form in _pokemon.Forms)
+                                    {
+                                        <span class="form-pill">@form.Name</span>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
                 </div>
             </section>
@@ -643,37 +648,89 @@
     }
 
     .moves-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1rem;
+        display: none;
     }
 
     .move-card {
+        display: none;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
         border: 1px solid var(--border);
-        border-radius: 0.85rem;
-        padding: 1rem;
+        border-radius: 0.75rem;
+    }
+
+    .moves-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+    }
+
+    .moves-table thead {
         background: var(--surface-alt);
-        display: grid;
-        gap: 0.8rem;
+        border-bottom: 2px solid var(--border);
+        position: sticky;
+        top: 0;
     }
 
-    .move-header {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        align-items: start;
-    }
-
-    .move-header h3 {
-        margin: 0.15rem 0 0;
-        text-transform: capitalize;
-        font-size: 1.05rem;
-    }
-
-    .move-level {
-        font-size: 0.8rem;
-        color: var(--muted);
+    .moves-table th {
+        padding: 0.75rem;
+        text-align: left;
         font-weight: 700;
+        color: var(--text);
+        font-size: 0.9rem;
+        text-transform: capitalize;
+    }
+
+    .moves-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+    }
+
+    .moves-table tbody tr:hover {
+        background: var(--surface-alt);
+    }
+
+    .level-cell {
+        font-weight: 700;
+        color: var(--accent);
+        width: 80px;
+    }
+
+    .name-cell {
+        font-weight: 600;
+        text-transform: capitalize;
+        width: 140px;
+    }
+
+    .type-cell {
+        width: 90px;
+    }
+
+    .category-cell {
+        text-transform: capitalize;
+        width: 100px;
+    }
+
+    .power-cell {
+        text-align: center;
+        width: 70px;
+    }
+
+    .accuracy-cell {
+        text-align: center;
+        width: 80px;
+    }
+
+    .pp-cell {
+        text-align: center;
+        width: 50px;
+    }
+
+    .methods-cell {
+        width: 150px;
     }
 
     .type-pill {
@@ -706,30 +763,6 @@
     .type-steel { background: #e5e7eb; }
     .type-fairy { background: #fce7f3; }
     .type-normal { background: #f3f4f6; }
-
-    .move-meta {
-        display: grid;
-        grid-template-columns: 120px 1fr;
-        gap: 0.35rem 0.75rem;
-        margin: 0;
-    }
-
-    .move-meta dt {
-        font-size: 0.8rem;
-        color: var(--muted);
-        font-weight: 700;
-    }
-
-    .move-meta dd {
-        margin: 0;
-        text-transform: capitalize;
-    }
-
-    .move-effect {
-        margin: 0;
-        color: var(--muted);
-        font-size: 0.92rem;
-    }
 
     .move-chips {
         display: flex;
@@ -765,6 +798,93 @@
         text-transform: capitalize;
     }
 
+    .abilities-forms-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .abilities-section h3,
+    .forms-section h3 {
+        margin: 0 0 0.75rem 0;
+        font-size: 1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text);
+    }
+
+    .abilities-list,
+    .forms-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .ability-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: capitalize;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .ability-normal {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+
+    .ability-normal:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .ability-hidden {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+
+    .ability-hidden:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+    }
+
+    .ability-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.25);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+
+    .form-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.6rem 1rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: capitalize;
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .form-pill:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
+
     .muted {
         color: var(--muted);
     }
@@ -779,6 +899,10 @@
         }
 
         .fact-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .abilities-forms-container {
             grid-template-columns: 1fr;
         }
     }

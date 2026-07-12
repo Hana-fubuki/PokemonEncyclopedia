@@ -1,67 +1,24 @@
-﻿@inherits LayoutComponentBase
-@implements IDisposable
-@inject PokemonFilterState FilterState
+@inherits LayoutComponentBase
+@implements IAsyncDisposable
 @inject PokemonThemeState ThemeState
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <div class="page @(ThemeState.IsDarkMode ? "theme-dark" : "theme-light")">
-    <aside class="sidebar">
-        <div class="sidebar-title">
-            <h1>Pokédex</h1>
-            <p>Search and refine the catalog.</p>
-        </div>
-
-        <div class="filters-panel">
-            <label class="search-label">
-                <span>Search</span>
-                <input class="search-input"
-                       value="@FilterState.SearchText"
-                       @oninput="HandleSearchInput"
-                       placeholder="Search Pokémon..." />
-            </label>
-
-            <div class="filter-group">
-                <div class="filter-title">Generation</div>
-                @foreach (var generation in Enumerable.Range(1, 9))
-                {
-                    <label class="filter-check">
-                        <input type="checkbox"
-                               checked="@FilterState.SelectedGenerations.Contains(generation)"
-                               @onchange="() => FilterState.ToggleGeneration(generation)" />
-                        <span>Gen @generation</span>
-                    </label>
-                }
-            </div>
-
-            <div class="filter-group">
-                <div class="filter-title">Type</div>
-                @foreach (var type in KnownTypes)
-                {
-                    <label class="filter-check">
-                        <input type="checkbox"
-                               checked="@FilterState.SelectedTypes.Contains(type)"
-                               @onchange="() => FilterState.ToggleType(type)" />
-                        <span class="type-pill type-@type">@type</span>
-                    </label>
-                }
-            </div>
-
-            <button class="clear-button" @onclick="FilterState.ClearFilters">Clear filters</button>
-        </div>
-
-        <div class="sidebar-footer">
-            <button class="theme-toggle" @onclick="ThemeState.Toggle">
-                <span>Dark mode</span>
-                <strong>@(ThemeState.IsDarkMode ? "On" : "Off")</strong>
+    <header class="top-banner">
+        <div class="banner-content">
+            <a href="/" class="banner-title">
+                <span class="banner-icon">📚</span>
+                <h1>Poképedia</h1>
+            </a>
+            <button class="theme-toggle" @onclick="ToggleTheme" title="Toggle dark mode">
+                <span>@(ThemeState.IsDarkMode ? "☀️" : "🌙")</span>
             </button>
         </div>
-    </aside>
+    </header>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
+    <main class="main-content">
+        <article class="content">
             @Body
         </article>
     </main>
@@ -74,37 +31,183 @@
 </div>
 
 @code {
-    private void HandleFilterChanged()
+    public async ValueTask DisposeAsync()
     {
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    private void HandleSearchInput(ChangeEventArgs args)
-    {
-        FilterState.SearchText = args.Value?.ToString() ?? string.Empty;
-    }
-
-    public void Dispose()
-    {
-        FilterState.Changed -= HandleFilterChanged;
         ThemeState.Changed -= HandleThemeChanged;
+        GC.SuppressFinalize(this);
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        FilterState.Changed += HandleFilterChanged;
+        await ThemeState.InitializeAsync(JSRuntime);
         ThemeState.Changed += HandleThemeChanged;
+        StateHasChanged();
+    }
+
+    private async Task ToggleTheme()
+    {
+        await ThemeState.Toggle();
     }
 
     private void HandleThemeChanged()
     {
         _ = InvokeAsync(StateHasChanged);
     }
-
-    private static readonly string[] KnownTypes =
-    [
-        "normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison",
-        "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark",
-        "steel", "fairy"
-    ];
 }
+
+<style>
+    :root {
+        --text: #1f2937;
+        --text-secondary: #6b7280;
+        --muted: #9ca3af;
+        --border: #e5e7eb;
+        --surface: #ffffff;
+        --surface-alt: #f9fafb;
+        --accent: #6366f1;
+        --accent-foreground: #ffffff;
+    }
+
+    .theme-dark {
+        --text: #f3f4f6;
+        --text-secondary: #d1d5db;
+        --muted: #9ca3af;
+        --border: #374151;
+        --surface: #1f2937;
+        --surface-alt: #111827;
+        --accent: #818cf8;
+        --accent-foreground: #ffffff;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html, body {
+        height: 100%;
+    }
+
+    body {
+        background: var(--surface);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .page {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        background: var(--surface);
+    }
+
+    .top-banner {
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface-alt) 100%);
+        border-bottom: 1px solid var(--border);
+        padding: 1rem 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        width: 100%;
+    }
+
+    .banner-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .banner-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+        color: var(--text);
+        transition: opacity 0.2s ease;
+    }
+
+    .banner-title:hover {
+        opacity: 0.8;
+    }
+
+    .banner-icon {
+        font-size: 1.75rem;
+    }
+
+    .banner-title h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin: 0;
+    }
+
+    .theme-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+        background: var(--surface-alt);
+        border-color: var(--accent);
+    }
+
+    .theme-toggle span {
+        display: flex;
+        align-items: center;
+    }
+
+    .main-content {
+        flex: 1;
+        width: 100%;
+    }
+
+    .content {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    #blazor-error-ui {
+        background: lightyellow;
+        bottom: 0;
+        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+        display: none;
+        left: 0;
+        padding: 6px 12px;
+        position: fixed;
+        right: 0;
+        z-index: 1000;
+    }
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 3.5rem;
+    }
+
+    #blazor-error-ui .dismiss:hover::after {
+        content: "✕";
+    }
+
+    @@media (max-width: 768px) {
+        .banner-title h1 {
+            font-size: 1.25rem;
+        }
+
+        .top-banner {
+            padding: 0.75rem 1rem;
+        }
+    }
+</style>

@@ -13,6 +13,8 @@ public interface IPokemonCatalogService
 
     Task<IReadOnlyList<Pokemon>> GetAllPokemonAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Pokemon>> GetAllBasePokemonAsync(CancellationToken cancellationToken);
+
     Task RefreshAllPokemonAsync(CancellationToken cancellationToken);
 
     Task<Pokemon?> GetPokemonByNameAsync(string name, CancellationToken cancellationToken);
@@ -28,4 +30,10 @@ public interface IPokemonCatalogService
     Task<IReadOnlyList<NamedApiResource<PokemonSpecies>>> GetPokemonSpeciesByGenerationAsync(
         int generation,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Move>> GetAllMovesAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlySet<string>> GetLegendaryPokemonNamesAsync(CancellationToken cancellationToken);
+
+    Task WarmupPokemonSpeciesAsync(CancellationToken cancellationToken);
 }

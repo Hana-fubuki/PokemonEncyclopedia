@@ -17,7 +17,7 @@ public class PokeApiController(IMediator mediator) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<Pokemon>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<Pokemon>>> GetAllPokemon(CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<PokemonSpecies>>> GetAllPokemon(CancellationToken cancellationToken)
     {
         var pokemon = await mediator.Send(new GetAllPokemonQuery(), cancellationToken).ConfigureAwait(false);
         return Ok(pokemon);
@@ -98,5 +98,15 @@ public class PokeApiController(IMediator mediator) : ControllerBase
             return NotFound();
 
         return Ok(evolutionChain);
+    }
+
+    [HttpGet("legendary")]
+    [ProducesResponseType(typeof(IReadOnlySet<string>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlySet<string>>> GetLegendaryPokemonNames(
+        [FromServices] IPokemonCatalogService catalogService,
+        CancellationToken cancellationToken)
+    {
+        var legendaryNames = await catalogService.GetLegendaryPokemonNamesAsync(cancellationToken).ConfigureAwait(false);
+        return Ok(legendaryNames);
     }
 }
