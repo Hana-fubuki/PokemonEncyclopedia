@@ -169,7 +169,7 @@
                 </div>
 
                 <div class="section-card">
-                    <h2>Abilities and forms</h2>
+                    <h2>Abilities</h2>
                     <div class="abilities-forms-container">
                         <div class="abilities-section">
                             <h3>Abilities</h3>
@@ -221,19 +221,6 @@
                                             </div>
                                         }
                                     </div>
-                                </div>
-                            </div>
-                        }
-
-                        @if (_pokemon.Forms.Count > 0)
-                        {
-                            <div class="forms-section">
-                                <h3>Forms</h3>
-                                <div class="forms-list">
-                                    @foreach (var form in _pokemon.Forms)
-                                    {
-                                        <span class="form-pill">@form.Name</span>
-                                    }
                                 </div>
                             </div>
                         }
@@ -315,6 +302,13 @@
 
             _pokemon = pokemon;
             _spriteUrl = GetSpriteUrl(pokemon);
+            
+            // Load the first ability by default
+            if (pokemon.Abilities.Count > 0)
+            {
+                await OnAbilitySelectedAsync(pokemon.Abilities[0].Ability.Name);
+            }
+            
             await InvokeAsync(StateHasChanged);
 
             // Start all data fetches in parallel
