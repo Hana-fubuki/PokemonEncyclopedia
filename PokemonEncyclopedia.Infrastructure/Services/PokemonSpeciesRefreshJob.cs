@@ -24,7 +24,7 @@ public class PokemonSpeciesRefreshJob
     public async Task Execute()
     {
         _logger.LogInformation("Running scheduled Pokémon species cache refresh");
-        await _pokemonCatalogService.WarmupPokemonSpeciesAsync(CancellationToken.None).ConfigureAwait(false);
+        await _pokemonCatalogService.GetAllPokemonSpeciesAsync(CancellationToken.None).ConfigureAwait(false);
         _logger.LogInformation("Pokémon species cache refresh completed");
     }
 }

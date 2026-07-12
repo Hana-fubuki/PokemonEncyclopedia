@@ -299,30 +299,6 @@ public class PokemonCatalogService : IPokemonCatalogService
         return _legendaryPokemonNames;
     }
 
-    public async Task WarmupPokemonSpeciesAsync(CancellationToken cancellationToken)
-    {
-        var pokemon = await GetAllPokemonAsync(cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("Warming Pokémon species data. Count={Count}", pokemon.Count);
-
-        using var throttler = new SemaphoreSlim(MaxConcurrentRequests);
-        var speciesTasks = pokemon.Select(async p =>
-        {
-            await throttler.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                return await GetPokemonSpeciesByNameAsync(p.Species.Name, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                throttler.Release();
-            }
-        });
-
-        var results = await Task.WhenAll(speciesTasks).ConfigureAwait(false);
-        var successCount = results.Count(r => r is not null);
-        _logger.LogInformation("Pokémon species data warmed. Count={Count}", successCount);
-    }
-
     private async Task<string> GetAllPokemonJsonAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
         if (!forceRefresh && !string.IsNullOrWhiteSpace(_allPokemonJson)) return _allPokemonJson;

@@ -345,8 +345,10 @@
             if (pokemon is null)
                 return;
 
+            System.Diagnostics.Debug.WriteLine($"[DETAIL] Loading Pokemon: {name}");
             _pokemon = pokemon;
             _spriteUrl = GetSpriteUrl(pokemon);
+            System.Diagnostics.Debug.WriteLine($"[DETAIL] Pokemon species name: {pokemon.Species?.Name}");
             
             // Load the first ability by default
             if (pokemon.Abilities.Count > 0)
@@ -362,11 +364,14 @@
             var movesTask = BuildMoveSummariesAsync(pokemon, cancellationToken);
             var varietiesTask = PokemonApi.GetPokemonVarietiesAsync(pokemon.Species.Name, cancellationToken);
 
+            System.Diagnostics.Debug.WriteLine($"[DETAIL] Started varieties fetch for species: {pokemon.Species.Name}");
+
             // Fire-and-forget: update sprite map in background
             _ = UpdateSpriteMapAsync(allPokemonTask, loadVersion, cancellationToken);
 
             // Wait for species to load first (needed for evolution chain ID)
             _species = await speciesTask.ConfigureAwait(false);
+            System.Diagnostics.Debug.WriteLine($"[DETAIL] Species loaded, varieties count in species: {_species?.Varieties?.Count ?? 0}");
             if (!IsCurrentLoad(loadVersion, cancellationToken))
                 return;
 
@@ -385,6 +390,7 @@
             _evolutionChain = await evolutionTask.ConfigureAwait(false);
             _moves = await movesTask.ConfigureAwait(false);
             _varieties = await varietiesTask.ConfigureAwait(false);
+            System.Diagnostics.Debug.WriteLine($"[DETAIL] Varieties loaded: {_varieties.Count} varieties for {name}");
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -393,7 +399,7 @@
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading Pokemon detail for {name}: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DETAIL] Error loading Pokemon detail for {name}: {ex.Message}\n{ex.StackTrace}");
             // Silently fail - let the UI show what was loaded before the error
         }
     }
