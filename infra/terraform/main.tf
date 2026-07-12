@@ -81,7 +81,7 @@ variable "enable_managed_identity" {
 
 variable "redis_capacity" {
   type        = number
-  description = "Redis cache capacity (0-6)"
+  description = "Redis cache capacity (0-6, 0=250MB free tier)"
   default     = 0
 }
 
@@ -139,6 +139,7 @@ variable "tags" {
   default = {
     application = "pokemonencyclopedia"
     managed_by  = "terraform"
+    tier        = "free"
   }
 }
 
@@ -160,7 +161,7 @@ resource "azurerm_resource_group" "rg" {
   tags     = local.tags
 }
 
-# Log Analytics Workspace
+# Log Analytics Workspace (Free tier: 5GB/month)
 resource "azurerm_log_analytics_workspace" "logs" {
   name                = "${local.resource_name_prefix}-logs"
   location            = azurerm_resource_group.rg.location
@@ -170,7 +171,19 @@ resource "azurerm_log_analytics_workspace" "logs" {
   tags                = local.tags
 }
 
-# Redis Cache
+# Application Insights (Free tier: 5GB/month)
+resource "azurerm_application_insights" "ai" {
+  name                = "${local.resource_name_prefix}-ai"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  application_type    = "web"
+  workspace_id        = azurerm_log_analytics_workspace.logs.id
+  retention_in_days   = 30
+  
+  tags = local.tags
+}
+
+# Redis Cache (Free tier: 250MB)
 resource "azurerm_redis_cache" "redis" {
   name                = "${local.resource_name_prefix}-redis"
   location            = azurerm_resource_group.rg.location
@@ -184,6 +197,73 @@ resource "azurerm_redis_cache" "redis" {
   tags = local.tags
 }
 
+# Redis Diagnostic Settings
+resource "azurerm_monitor_diagnostic_setting" "redis_diagnostics" {
+  name                       = "${azurerm_redis_cache.redis.name}-diagnostics"
+  target_resource_id         = azurerm_redis_cache.redis.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.logs.id
+
+  enabled_log {
+    category = "ConnectedClientList"
+  }
+
+  metric {
+    category = "AllMetrics"
+  }
+}
+
+# Cosmos DB (Free tier: 400 RU/s)
+resource "azurerm_cosmosdb_account" "cosmos" {
+  name                = "${local.resource_name_prefix}-cosmos"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  offer_type          = "Standard"
+  kind                = "GlobalDocumentDB"
+  free_tier_enabled   = true
+  
+  consistency_policy {
+    consistency_level = "Session"
+  }
+
+  geo_location {
+    location          = var.location
+    failover_priority = 0
+  }
+  
+  tags = local.tags
+}
+
+# Cosmos DB Diagnostic Settings
+resource "azurerm_monitor_diagnostic_setting" "cosmos_diagnostics" {
+  name                       = "${azurerm_cosmosdb_account.cosmos.name}-diagnostics"
+  target_resource_id         = azurerm_cosmosdb_account.cosmos.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.logs.id
+
+  enabled_log {
+    category = "DataPlaneRequests"
+  }
+
+  enabled_log {
+    category = "MongoRequests"
+  }
+
+  enabled_log {
+    category = "QueryRuntimeStatistics"
+  }
+
+  enabled_log {
+    category = "PartitionKeyStatistics"
+  }
+
+  enabled_log {
+    category = "ControlPlaneRequests"
+  }
+
+  metric {
+    category = "Requests"
+  }
+}
+
 # Container App Environment
 resource "azurerm_container_app_environment" "cae" {
   name                           = "${local.resource_name_prefix}-cae"
@@ -192,6 +272,25 @@ resource "azurerm_container_app_environment" "cae" {
   log_analytics_workspace_id     = azurerm_log_analytics_workspace.logs.id
   
   tags = local.tags
+}
+
+# Container App Environment Diagnostic Settings
+resource "azurerm_monitor_diagnostic_setting" "cae_diagnostics" {
+  name                       = "${azurerm_container_app_environment.cae.name}-diagnostics"
+  target_resource_id         = azurerm_container_app_environment.cae.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.logs.id
+
+  enabled_log {
+    category = "ContainerAppConsoleLogs"
+  }
+
+  enabled_log {
+    category = "ContainerAppSystemLogs"
+  }
+
+  metric {
+    category = "AllMetrics"
+  }
 }
 
 # API Service Container App
@@ -219,6 +318,16 @@ resource "azurerm_container_app" "api" {
   secret {
     name  = "redis-connection"
     value = "redisHost=${azurerm_redis_cache.redis.hostname},redisPort=${azurerm_redis_cache.redis.port},ssl=true,password=${azurerm_redis_cache.redis.primary_access_key}"
+  }
+
+  secret {
+    name  = "cosmos-connection"
+    value = azurerm_cosmosdb_account.cosmos.connection_strings[0]
+  }
+
+  secret {
+    name  = "app-insights-key"
+    value = azurerm_application_insights.ai.instrumentation_key
   }
 
   ingress {
@@ -254,6 +363,26 @@ resource "azurerm_container_app" "api" {
         secret_name = "redis-connection"
       }
 
+      env {
+        name        = "COSMOS_CONNECTION_STRING"
+        secret_name = "cosmos-connection"
+      }
+
+      env {
+        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        secret_name = "app-insights-key"
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = "http://localhost:4317"
+      }
+
+      env {
+        name  = "OTEL_SERVICE_NAME"
+        value = "pokemonencyclopedia-api"
+      }
+
       liveness_probe {
         http_get {
           path = "/health"
@@ -269,6 +398,11 @@ resource "azurerm_container_app" "api" {
   }
 
   tags = merge(local.tags, { service = "api" })
+
+  depends_on = [
+    azurerm_monitor_diagnostic_setting.redis_diagnostics,
+    azurerm_monitor_diagnostic_setting.cosmos_diagnostics
+  ]
 }
 
 # Web Service Container App
@@ -291,6 +425,11 @@ resource "azurerm_container_app" "web" {
   secret {
     name  = "container-registry-password"
     value = var.container_registry_password
+  }
+
+  secret {
+    name  = "app-insights-key"
+    value = azurerm_application_insights.ai.instrumentation_key
   }
 
   ingress {
@@ -329,6 +468,21 @@ resource "azurerm_container_app" "web" {
       env {
         name  = "APISERVICE_ENDPOINT"
         value = "http://${azurerm_container_app.api.ingress[0].fqdn}"
+      }
+
+      env {
+        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        secret_name = "app-insights-key"
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = "http://localhost:4317"
+      }
+
+      env {
+        name  = "OTEL_SERVICE_NAME"
+        value = "pokemonencyclopedia-web"
       }
 
       liveness_probe {
@@ -373,6 +527,23 @@ output "redis_port" {
 output "redis_access_key" {
   description = "Redis primary access key"
   value       = azurerm_redis_cache.redis.primary_access_key
+  sensitive   = true
+}
+
+output "cosmos_endpoint" {
+  description = "Cosmos DB endpoint"
+  value       = azurerm_cosmosdb_account.cosmos.endpoint
+}
+
+output "app_insights_instrumentation_key" {
+  description = "Application Insights instrumentation key"
+  value       = azurerm_application_insights.ai.instrumentation_key
+  sensitive   = true
+}
+
+output "app_insights_connection_string" {
+  description = "Application Insights connection string"
+  value       = azurerm_application_insights.ai.connection_string
   sensitive   = true
 }
 
