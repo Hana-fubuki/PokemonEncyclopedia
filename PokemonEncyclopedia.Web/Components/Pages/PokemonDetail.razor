@@ -170,6 +170,9 @@
 
                 <div class="section-card">
                     <h2>Varieties</h2>
+                    <div style="font-size: 0.8em; color: #999; margin-bottom: 1em;">
+                        DEBUG: Varieties fetched=@_varieties.Count | Species varieties=@(_species?.Varieties?.Count ?? 0) | Species name=@_species?.Name
+                    </div>
                     @if (_varieties.Count == 0)
                     {
                         <p class="muted">No varieties available.</p>
@@ -339,16 +342,20 @@
 
     private async Task LoadPokemonDetailAsync(string name, int loadVersion, CancellationToken cancellationToken)
     {
+        System.Diagnostics.Debug.WriteLine($"[LOAD] LoadPokemonDetailAsync started for {name}, version={loadVersion}");
         try
         {
             var pokemon = await PokemonApi.GetPokemonAsync(name, cancellationToken).ConfigureAwait(false);
             if (pokemon is null)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LOAD] Pokemon is null");
                 return;
+            }
 
-            System.Diagnostics.Debug.WriteLine($"[DETAIL] Loading Pokemon: {name}");
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Loading Pokemon: {name}");
             _pokemon = pokemon;
             _spriteUrl = GetSpriteUrl(pokemon);
-            System.Diagnostics.Debug.WriteLine($"[DETAIL] Pokemon species name: {pokemon.Species?.Name}");
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Pokemon species name: {pokemon.Species?.Name}");
             
             // Load the first ability by default
             if (pokemon.Abilities.Count > 0)
@@ -359,21 +366,25 @@
             await InvokeAsync(StateHasChanged);
 
             // Start all data fetches in parallel
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Starting parallel fetches for all data");
             var allPokemonTask = PokemonApi.GetAllPokemonAsync(cancellationToken);
             var speciesTask = PokemonApi.GetSpeciesAsync(pokemon.Species.Name, cancellationToken);
             var movesTask = BuildMoveSummariesAsync(pokemon, cancellationToken);
             var varietiesTask = PokemonApi.GetPokemonVarietiesAsync(pokemon.Species.Name, cancellationToken);
 
-            System.Diagnostics.Debug.WriteLine($"[DETAIL] Started varieties fetch for species: {pokemon.Species.Name}");
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Started varieties fetch for species: {pokemon.Species.Name}");
 
             // Fire-and-forget: update sprite map in background
             _ = UpdateSpriteMapAsync(allPokemonTask, loadVersion, cancellationToken);
 
             // Wait for species to load first (needed for evolution chain ID)
             _species = await speciesTask.ConfigureAwait(false);
-            System.Diagnostics.Debug.WriteLine($"[DETAIL] Species loaded, varieties count in species: {_species?.Varieties?.Count ?? 0}");
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Species loaded, varieties count in species: {_species?.Varieties?.Count ?? 0}");
             if (!IsCurrentLoad(loadVersion, cancellationToken))
+            {
+                System.Diagnostics.Debug.WriteLine($"[LOAD] Load version mismatch, cancelling");
                 return;
+            }
 
             // Start evolution chain fetch (now we have the chain ID from species)
             var chainId = GetEvolutionChainId(_species);
@@ -382,24 +393,29 @@
                 : PokemonApi.GetEvolutionChainAsync(chainId.Value, cancellationToken);
 
             // Wait for both evolution and moves in parallel
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Waiting for evolution, moves, and varieties tasks");
             await Task.WhenAll(evolutionTask, movesTask, varietiesTask).ConfigureAwait(false);
 
             if (!IsCurrentLoad(loadVersion, cancellationToken))
+            {
+                System.Diagnostics.Debug.WriteLine($"[LOAD] Load version mismatch after WhenAll, cancelling");
                 return;
+            }
 
             _evolutionChain = await evolutionTask.ConfigureAwait(false);
             _moves = await movesTask.ConfigureAwait(false);
             _varieties = await varietiesTask.ConfigureAwait(false);
-            System.Diagnostics.Debug.WriteLine($"[DETAIL] Varieties loaded: {_varieties.Count} varieties for {name}");
+            System.Diagnostics.Debug.WriteLine($"[LOAD] All data loaded: Varieties={_varieties.Count} for {name}");
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Load cancelled");
             // Load was cancelled, this is expected when navigating away
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DETAIL] Error loading Pokemon detail for {name}: {ex.Message}\n{ex.StackTrace}");
+            System.Diagnostics.Debug.WriteLine($"[LOAD] Error loading Pokemon detail for {name}: {ex.Message}\n{ex.StackTrace}");
             // Silently fail - let the UI show what was loaded before the error
         }
     }

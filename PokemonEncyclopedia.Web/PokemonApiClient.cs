@@ -214,10 +214,22 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<IReadOnlyList<Pokemon>> GetPokemonVarietiesAsync(string speciesName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(speciesName)) return Array.Empty<Pokemon>();
+        Debug.WriteLine($"[VARIETIES] GetPokemonVarietiesAsync called with speciesName={speciesName}");
+        
+        if (string.IsNullOrWhiteSpace(speciesName))
+        {
+            Debug.WriteLine($"[VARIETIES] Species name is null/whitespace, returning empty");
+            return Array.Empty<Pokemon>();
+        }
         
         var normalizedName = speciesName.Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(normalizedName)) return Array.Empty<Pokemon>();
+        Debug.WriteLine($"[VARIETIES] Normalized name: {normalizedName}");
+        
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            Debug.WriteLine($"[VARIETIES] Normalized name is empty, returning empty");
+            return Array.Empty<Pokemon>();
+        }
 
         var cacheKey = $"varieties:{normalizedName}";
         if (cache.TryGetValue(cacheKey, out IReadOnlyList<Pokemon>? cachedVarieties) && cachedVarieties is not null)

@@ -75,7 +75,8 @@ public class PokemonCatalogService : IPokemonCatalogService
 
     public async Task<IReadOnlyList<PokemonSpecies>> GetAllPokemonSpeciesAsync(CancellationToken cancellationToken)
     {
-        var cachedJson = await _distributedCache.GetStringAsync(AllSpeciesCacheKey, cancellationToken).ConfigureAwait(false);
+        // Use CancellationToken.None for cache operations
+        var cachedJson = await _distributedCache.GetStringAsync(AllSpeciesCacheKey, CancellationToken.None).ConfigureAwait(false);
         if (cachedJson is not null)
         {
             var cachedSpecies = JsonSerializer.Deserialize<List<PokemonSpecies>>(cachedJson, SerializerOptions);
@@ -114,7 +115,7 @@ public class PokemonCatalogService : IPokemonCatalogService
             AllSpeciesCacheKey,
             _allSpeciesJson,
             new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = null },
-            cancellationToken).ConfigureAwait(false);
+            CancellationToken.None).ConfigureAwait(false);
 
         return _allSpecies;
     }
@@ -412,7 +413,7 @@ public class PokemonCatalogService : IPokemonCatalogService
                 {
                     AbsoluteExpirationRelativeToNow = null
                 },
-                cancellationToken).ConfigureAwait(false);
+                CancellationToken.None).ConfigureAwait(false);
 
             LastWarmupError = null;
 
@@ -446,7 +447,7 @@ public class PokemonCatalogService : IPokemonCatalogService
 
            if (!forceRefresh)
            {
-               var cachedJson = await _distributedCache.GetStringAsync(AllMovesCacheKey, cancellationToken)
+               var cachedJson = await _distributedCache.GetStringAsync(AllMovesCacheKey, CancellationToken.None)
                    .ConfigureAwait(false);
                if (!string.IsNullOrWhiteSpace(cachedJson))
                {
@@ -495,7 +496,7 @@ public class PokemonCatalogService : IPokemonCatalogService
                {
                    AbsoluteExpirationRelativeToNow = null
                },
-               cancellationToken).ConfigureAwait(false);
+               CancellationToken.None).ConfigureAwait(false);
 
            LastWarmupError = null;
 
@@ -529,7 +530,7 @@ public class PokemonCatalogService : IPokemonCatalogService
 
            if (!forceRefresh)
            {
-               var cachedJson = await _distributedCache.GetStringAsync(AllAbilitiesCacheKey, cancellationToken)
+               var cachedJson = await _distributedCache.GetStringAsync(AllAbilitiesCacheKey, CancellationToken.None)
                    .ConfigureAwait(false);
                if (!string.IsNullOrWhiteSpace(cachedJson))
                {
@@ -578,7 +579,7 @@ public class PokemonCatalogService : IPokemonCatalogService
                {
                    AbsoluteExpirationRelativeToNow = null
                },
-               cancellationToken).ConfigureAwait(false);
+               CancellationToken.None).ConfigureAwait(false);
 
            LastWarmupError = null;
 
@@ -620,7 +621,8 @@ public class PokemonCatalogService : IPokemonCatalogService
 
     private async Task<T?> GetCachedResourceAsync<T>(string cacheKey, Func<Task<T>> factory, CancellationToken cancellationToken)
     {
-        var cachedJson = await _distributedCache.GetStringAsync(cacheKey, cancellationToken).ConfigureAwait(false);
+        // Use CancellationToken.None for cache operations to prevent cancellation from interrupting cache lookups
+        var cachedJson = await _distributedCache.GetStringAsync(cacheKey, CancellationToken.None).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(cachedJson))
         {
             var cachedResource = JsonSerializer.Deserialize<T>(cachedJson, SerializerOptions);
