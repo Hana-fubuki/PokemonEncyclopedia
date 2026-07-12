@@ -1,0 +1,154 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'PokemonEncyclopedia.ApiService/**'
+      - 'PokemonEncyclopedia.Web/**'
+      - 'infra/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  REGISTRY: ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}
+  REGISTRY_USERNAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_USERNAME }}
+  REGISTRY_PASSWORD: ${{ secrets.AZURE_CONTAINER_REGISTRY_PASSWORD }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Container Images
+    runs-on: ubuntu-latest
+    outputs:
+      api_tag: ${{ steps.meta-api.outputs.tags }}
+      web_tag: ${{ steps.meta-web.outputs.tags }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Generate Docker metadata (API)
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/pokemonencyclopedia-api
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Generate Docker metadata (Web)
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/pokemonencyclopedia-web
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./PokemonEncyclopedia.ApiService
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/pokemonencyclopedia-api:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/pokemonencyclopedia-api:buildcache,mode=max
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./PokemonEncyclopedia.Web
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/pokemonencyclopedia-web:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/pokemonencyclopedia-web:buildcache,mode=max
+
+  deploy:
+    name: Deploy Infrastructure and Services
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment:
+      name: ${{ github.event.inputs.environment || 'dev' }}
+      url: ${{ steps.deploy.outputs.web_service_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy with Bicep
+        id: deploy
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          RESOURCE_GROUP="pokepedia-${ENVIRONMENT}-rg"
+          
+          # Create resource group if it doesn't exist
+          az group create \
+            --name "${RESOURCE_GROUP}" \
+            --location eastus2 \
+            --tags environment="${ENVIRONMENT}" application="pokemonencyclopedia"
+          
+          # Deploy Bicep template
+          az deployment group create \
+            --name "pokepedia-${ENVIRONMENT}-deployment-$(date +%s)" \
+            --resource-group "${RESOURCE_GROUP}" \
+            --template-file infra/bicep/main.bicep \
+            --parameters \
+              environment="${ENVIRONMENT}" \
+              location="eastus2" \
+              namePrefix="pokepedia" \
+              containerRegistryUrl="${{ env.REGISTRY }}" \
+              containerRegistryUsername="${{ env.REGISTRY_USERNAME }}" \
+              containerRegistryPassword="${{ env.REGISTRY_PASSWORD }}" \
+              apiImageTag="${{ needs.build-and-push.outputs.api_tag }}" \
+              webImageTag="${{ needs.build-and-push.outputs.web_tag }}"
+          
+          # Get deployment outputs
+          OUTPUTS=$(az deployment group show \
+            --name "pokepedia-${ENVIRONMENT}-deployment-$(date +%s)" \
+            --resource-group "${RESOURCE_GROUP}" \
+            --query properties.outputs \
+            --output json)
+          
+          WEB_URL=$(echo "${OUTPUTS}" | jq -r '.webServiceUrl.value')
+          echo "web_service_url=${WEB_URL}" >> $GITHUB_OUTPUT
+          echo "Deployment successful! Web service: ${WEB_URL}"
+
+      - name: Update deployment status
+        if: always()
+        run: |
+          echo "Deployment Status: ${{ job.status }}"
+          echo "Web Service URL: ${{ steps.deploy.outputs.web_service_url }}"
