@@ -12,7 +12,6 @@ using PokemonEncyclopedia.Infrastructure.DependencyInjection;
 using PokemonEncyclopedia.ApiService.HealthChecks;
 using PokemonEncyclopedia.ApiService.Middleware;
 using PokemonEncyclopedia.ApiService.Services;
-using PokemonEncyclopedia.ApiService.Swagger;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -76,7 +75,6 @@ builder.Services.AddOpenApi(options =>
 builder.Services.AddSwaggerGen(options =>
 {
     options.CustomSchemaIds(type => (type.FullName ?? type.Name).Replace('+', '.'));
-    options.DocumentFilter<PokemonSpritesSchemaAliasDocumentFilter>();
     options.EnableAnnotations();
     options.SwaggerDoc("v1", new OpenApiInfo
     {
