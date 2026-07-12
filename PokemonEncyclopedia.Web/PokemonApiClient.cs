@@ -23,10 +23,38 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
                 .ConfigureAwait(false);
             return (IReadOnlyList<Pokemon>)(response ?? Array.Empty<Pokemon>());
         }).ConfigureAwait(false) ?? Array.Empty<Pokemon>();
+        
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("client.operation", "all-pokemon"));
+        
+        // Fire-and-forget: pre-cache species data for all Pokemon in the background
+        _ = PrecacheSpeciesDataAsync(pokemon, cancellationToken);
+        
         return pokemon;
+    }
+
+    private async Task PrecacheSpeciesDataAsync(IReadOnlyList<Pokemon> allPokemon, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Pre-cache species data for all Pokemon to ensure varieties are available
+            var speciesTasks = allPokemon
+                .Where(p => p.Species?.Name is not null)
+                .DistinctBy(p => p.Species!.Name)
+                .Select(p => GetSpeciesAsync(p.Species!.Name, cancellationToken))
+                .ToList();
+
+            if (speciesTasks.Count > 0)
+            {
+                await Task.WhenAll(speciesTasks).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error pre-caching species data: {ex.Message}");
+            // Don't throw - this is background operation
+        }
     }
 
     public async Task<Pokemon?> GetPokemonAsync(string name, CancellationToken cancellationToken = default)
@@ -180,11 +208,13 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<IReadOnlyList<Pokemon>> GetPokemonVarietiesAsync(string speciesName, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(speciesName)) return Array.Empty<Pokemon>();
+        
         var normalizedName = speciesName.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(normalizedName)) return Array.Empty<Pokemon>();
 
         var cacheKey = $"varieties:{normalizedName}";
-        if (cache.TryGetValue(cacheKey, out IReadOnlyList<Pokemon>? cachedVarieties))
+        if (cache.TryGetValue(cacheKey, out IReadOnlyList<Pokemon>? cachedVarieties) && cachedVarieties is not null)
             return cachedVarieties;
 
         var sw = Stopwatch.StartNew();
@@ -192,35 +222,33 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         
         try
         {
+            // Get species data (should already be cached from GetAllPokemonAsync pre-cache)
             var species = await GetSpeciesAsync(normalizedName, cancellationToken).ConfigureAwait(false);
             
             if (species?.Varieties is not null && species.Varieties.Count > 0)
             {
+                // Fetch each variety's Pokemon data in parallel for speed
+                var varietyFetchTasks = new List<Task<Pokemon?>>();
+                
                 foreach (var variety in species.Varieties)
                 {
                     if (variety.Pokemon?.Name is not null)
                     {
-                        try
-                        {
-                            var pokemon = await GetPokemonAsync(variety.Pokemon.Name, cancellationToken).ConfigureAwait(false);
-                            if (pokemon is not null)
-                            {
-                                varieties.Add(pokemon);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error fetching variety {variety.Pokemon.Name}: {ex.Message}");
-                            // Continue with next variety if one fails
-                        }
+                        varietyFetchTasks.Add(GetPokemonAsync(variety.Pokemon.Name, cancellationToken));
                     }
+                }
+
+                if (varietyFetchTasks.Count > 0)
+                {
+                    var varietyResults = await Task.WhenAll(varietyFetchTasks).ConfigureAwait(false);
+                    varieties.AddRange(varietyResults.Where(v => v is not null)!);
                 }
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error fetching varieties for species {normalizedName}: {ex.Message}");
-            // Return empty list if species fetch fails
+            // Return what we have rather than failing completely
         }
 
         sw.Stop();
