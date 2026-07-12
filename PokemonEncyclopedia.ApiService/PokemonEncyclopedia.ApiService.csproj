@@ -20,6 +20,7 @@
         <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.4.6"/>
         <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23"/>
         <PackageReference Include="Hangfire.AzureCosmosDb" Version="2.0.8"/>
+        <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0"/>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8"/>
         <PackageReference Include="Scalar.AspNetCore" Version="2.16.10"/>
         <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3"/>

@@ -3,6 +3,9 @@ using PokemonEncyclopedia.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add Application Insights
+builder.Services.AddApplicationInsightsTelemetry();
+
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
 builder.AddRedisOutputCache("cache");

@@ -12,6 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="Aspire.StackExchange.Redis.OutputCaching" Version="13.4.6"/>
+        <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0"/>
         <PackageReference Include="PokeApiNet" Version="4.1.0"/>
     </ItemGroup>
 
