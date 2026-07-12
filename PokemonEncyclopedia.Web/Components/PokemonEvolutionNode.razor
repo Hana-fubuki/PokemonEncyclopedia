@@ -1,8 +1,9 @@
 @using System.Globalization
 @using PokeApiNet
+@inject NavigationManager Navigation
 
 <div class="evolution-container">
-    <div class="evolution-card">
+    <div class="evolution-card" @onclick="NavigateToPokemon">
         <div class="evolution-header">
             <div class="evolution-sprite">
                 @if (!string.IsNullOrWhiteSpace(SpriteUrl))
@@ -58,6 +59,11 @@
     public IReadOnlyDictionary<string, string?> SpriteMap { get; set; } = new Dictionary<string, string?>();
 
     private string? SpriteUrl => SpriteMap.TryGetValue(Node.Species.Name, out var sprite) ? sprite : null;
+
+    private void NavigateToPokemon()
+    {
+        Navigation.NavigateTo($"/pokemon/{Node.Species.Name}");
+    }
 
     private static string FormatDetail(EvolutionDetail detail)
     {
@@ -140,6 +146,7 @@
         width: 100%;
         max-width: 280px;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
     }
 
     .evolution-card:hover {
