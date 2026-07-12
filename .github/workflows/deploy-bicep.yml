@@ -1,4 +1,4 @@
-name: Deploy to Azure Container Apps
+name: Deploy to Azure (Bicep) - DEFAULT
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     paths:
       - 'PokemonEncyclopedia.ApiService/**'
       - 'PokemonEncyclopedia.Web/**'
-      - 'infra/**'
-      - '.github/workflows/deploy.yml'
+      - 'infra/bicep/**'
+      - '.github/workflows/deploy-bicep.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -20,6 +20,13 @@ on:
           - dev
           - staging
           - prod
+      deployment_mode:
+        description: 'Deployment mode'
+        required: false
+        default: 'bicep'
+        type: choice
+        options:
+          - bicep
 
 env:
   REGISTRY: ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}
