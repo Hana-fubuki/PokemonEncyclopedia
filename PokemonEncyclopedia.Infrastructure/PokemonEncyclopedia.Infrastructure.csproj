@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);1591</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+
+        <ProjectReference Include="..\PokemonEncyclopedia.Application\PokemonEncyclopedia.Application.csproj" />
+
+        <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />
+        <PackageReference Include="IeuanWalker.Hangfire.RecurringJob" Version="2.0.0" />
+        <PackageReference Include="PokeApiNet" Version="4.1.0" />
+    </ItemGroup>
+
+</Project>

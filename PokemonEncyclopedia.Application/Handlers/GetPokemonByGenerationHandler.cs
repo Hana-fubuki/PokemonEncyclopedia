@@ -1,0 +1,40 @@
+using MediatR;
+using Microsoft.Extensions.Logging;
+using PokeApiNet;
+using PokemonEncyclopedia.Application.Models;
+using PokemonEncyclopedia.Application.Services;
+
+namespace PokemonEncyclopedia.Application.Handlers;
+
+/// <summary>
+///     Handles requests to retrieve all Pokémon species for a given generation
+///     by reading from the cached Pokémon catalog.
+/// </summary>
+public class GetPokemonByGenerationHandler
+    : IRequestHandler<GetPokemonByGenerationQuery, IEnumerable<NamedApiResource<PokemonSpecies>>>
+{
+    private readonly ILogger<GetPokemonByGenerationHandler> _logger;
+    private readonly IPokemonCatalogService _pokemonCatalogService;
+
+    public GetPokemonByGenerationHandler(
+        IPokemonCatalogService pokemonCatalogService,
+        ILogger<GetPokemonByGenerationHandler> logger)
+    {
+        _pokemonCatalogService = pokemonCatalogService;
+        _logger = logger;
+    }
+
+    public async Task<IEnumerable<NamedApiResource<PokemonSpecies>>> Handle(GetPokemonByGenerationQuery request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Handler: fetching generation {Generation}", request.Generation);
+        var speciesInGeneration = await _pokemonCatalogService
+            .GetPokemonSpeciesByGenerationAsync(request.Generation, cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation("Handler: found {Count} species for generation {Generation}",
+            speciesInGeneration.Count, request.Generation);
+
+        return speciesInGeneration;
+    }
+}

@@ -1,0 +1,229 @@
+@page "/pokemon/{Name}"
+@attribute [StreamRendering(true)]
+@attribute [OutputCache(Duration = 300)]
+@inject PokemonApiClient PokemonApi
+
+<PageTitle>@(string.IsNullOrWhiteSpace(_pokemon?.Name) ? "Pokémon" : _pokemon.Name)</PageTitle>
+
+@if (_pokemon is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    var sprite = _pokemon.Sprites?.Other?.DreamWorld?.FrontDefault
+        ?? _pokemon.Sprites?.Other?.OfficialArtwork?.FrontDefault
+        ?? _pokemon.Sprites?.FrontDefault;
+
+    <div class="detail-header">
+        <a href="/">← Back to Pokédex</a>
+        <div class="detail-title">
+            <span class="dex-number">#@_pokemon.Id</span>
+            <h1>@_pokemon.Name</h1>
+            <p>@string.Join(" / ", _pokemon.Types.Select(t => t.Type.Name))</p>
+        </div>
+    </div>
+
+    <div class="bulba-layout">
+        <aside class="infobox">
+            <div class="infobox-title">@_pokemon.Name</div>
+            <div class="infobox-image">
+                @if (!string.IsNullOrWhiteSpace(sprite))
+                {
+                    <img src="@sprite" alt="@_pokemon.Name sprite" />
+                }
+            </div>
+
+            <table>
+                <tr><th>National №</th><td>@_pokemon.Id</td></tr>
+                <tr><th>Type</th><td>@string.Join(", ", _pokemon.Types.Select(t => t.Type.Name))</td></tr>
+                <tr><th>Abilities</th><td>@string.Join(", ", _pokemon.Abilities.Select(a => a.Ability.Name))</td></tr>
+                <tr><th>Height</th><td>@_pokemon.Height</td></tr>
+                <tr><th>Weight</th><td>@_pokemon.Weight</td></tr>
+                <tr><th>Base exp.</th><td>@_pokemon.BaseExperience</td></tr>
+            </table>
+        </aside>
+
+        <section class="detail-body">
+            <div class="section-card">
+                <h2>Pokédex data</h2>
+                <dl class="details-list">
+                    <dt>Species</dt>
+                    <dd>@_pokemon.Species.Name</dd>
+                    <dt>Forms</dt>
+                    <dd>@string.Join(", ", _pokemon.Forms.Select(f => f.Name))</dd>
+                    <dt>Order</dt>
+                    <dd>@_pokemon.Order</dd>
+                    <dt>Default</dt>
+                    <dd>@_pokemon.IsDefault</dd>
+                </dl>
+            </div>
+
+            <div class="section-card">
+                <h2>Stats</h2>
+                <div class="stat-list">
+                    @foreach (var stat in _pokemon.Stats)
+                    {
+                        <div class="stat-row">
+                            <span>@stat.Stat.Name</span>
+                            <strong>@stat.BaseStat</strong>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Name { get; set; } = string.Empty;
+
+    private PokeApiNet.Pokemon? _pokemon;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _pokemon = await PokemonApi.GetPokemonAsync(Name);
+    }
+}
+
+<style>
+    .detail-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .detail-title h1 {
+        margin: 0;
+        text-transform: capitalize;
+        font-size: 2.2rem;
+    }
+
+    .dex-number {
+        display: inline-block;
+        font-weight: 700;
+        color: #6b7280;
+    }
+
+    .detail-title p {
+        margin: 0.25rem 0 0;
+        color: #6b7280;
+        text-transform: capitalize;
+    }
+
+    .bulba-layout {
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr);
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .infobox {
+        border: 1px solid #a2b6d6;
+        background: #f8fbff;
+        border-radius: 0.35rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .infobox-title {
+        background: #cfe0f6;
+        border-bottom: 1px solid #a2b6d6;
+        font-weight: 700;
+        text-align: center;
+        padding: 0.75rem;
+        text-transform: capitalize;
+    }
+
+    .infobox-image {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 240px;
+        padding: 1rem;
+        background: linear-gradient(180deg, #ffffff, #edf4ff);
+    }
+
+    .infobox-image img {
+        max-width: 100%;
+        max-height: 220px;
+    }
+
+    .infobox table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+    }
+
+    .infobox th,
+    .infobox td {
+        border-top: 1px solid #c8d6ea;
+        padding: 0.55rem 0.75rem;
+        vertical-align: top;
+    }
+
+    .infobox th {
+        width: 40%;
+        text-align: left;
+        background: #eef5ff;
+    }
+
+    .detail-body {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .section-card {
+        border: 1px solid #ddd;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        background: white;
+    }
+
+    .section-card h2 {
+        margin: 0 0 0.75rem 0;
+        font-size: 1.2rem;
+    }
+
+    .details-list {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        gap: 0.5rem 1rem;
+        margin: 0;
+    }
+
+    .details-list dt {
+        font-weight: 700;
+    }
+
+    .details-list dd {
+        margin: 0;
+        text-transform: capitalize;
+    }
+
+    .stat-list {
+        display: grid;
+        gap: 0.5rem;
+    }
+
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 0.5rem;
+        background: #f8fafc;
+    }
+
+    .stat-row span {
+        text-transform: capitalize;
+    }
+
+    @@media (max-width: 900px) {
+        .bulba-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
