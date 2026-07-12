@@ -1,98 +1,374 @@
 @page "/pokemon/{Name}"
+@rendermode InteractiveServer
 @attribute [StreamRendering(true)]
 @attribute [OutputCache(Duration = 300)]
 @inject PokemonApiClient PokemonApi
+@inject NavigationManager Navigation
 
 <PageTitle>@(string.IsNullOrWhiteSpace(_pokemon?.Name) ? "Pokémon" : _pokemon.Name)</PageTitle>
 
-@if (_pokemon is null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    var sprite = _pokemon.Sprites?.Other?.DreamWorld?.FrontDefault
-        ?? _pokemon.Sprites?.Other?.OfficialArtwork?.FrontDefault
-        ?? _pokemon.Sprites?.FrontDefault;
-
-    <div class="detail-header">
-        <a href="/">← Back to Pokédex</a>
-        <div class="detail-title">
-            <span class="dex-number">#@_pokemon.Id</span>
-            <h1>@_pokemon.Name</h1>
-            <p>@string.Join(" / ", _pokemon.Types.Select(t => t.Type.Name))</p>
+<div class="pokemon-detail-shell">
+    @if (_pokemon is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="detail-header">
+            <button type="button" class="back-link" @onclick="GoBack">← Back to Pokédex</button>
+            <div class="detail-title">
+                <span class="dex-number">#@_pokemon.Id</span>
+                <h1>@_pokemon.Name</h1>
+                <p>@string.Join(" / ", _pokemon.Types.Select(t => t.Type.Name))</p>
+            </div>
         </div>
-    </div>
 
-    <div class="bulba-layout">
-        <aside class="infobox">
-            <div class="infobox-title">@_pokemon.Name</div>
-            <div class="infobox-image">
-                @if (!string.IsNullOrWhiteSpace(sprite))
-                {
-                    <img src="@sprite" alt="@_pokemon.Name sprite" />
-                }
-            </div>
-
-            <table>
-                <tr><th>National №</th><td>@_pokemon.Id</td></tr>
-                <tr><th>Type</th><td>@string.Join(", ", _pokemon.Types.Select(t => t.Type.Name))</td></tr>
-                <tr><th>Abilities</th><td>@string.Join(", ", _pokemon.Abilities.Select(a => a.Ability.Name))</td></tr>
-                <tr><th>Height</th><td>@_pokemon.Height</td></tr>
-                <tr><th>Weight</th><td>@_pokemon.Weight</td></tr>
-                <tr><th>Base exp.</th><td>@_pokemon.BaseExperience</td></tr>
-            </table>
-        </aside>
-
-        <section class="detail-body">
-            <div class="section-card">
-                <h2>Pokédex data</h2>
-                <dl class="details-list">
-                    <dt>Species</dt>
-                    <dd>@_pokemon.Species.Name</dd>
-                    <dt>Forms</dt>
-                    <dd>@string.Join(", ", _pokemon.Forms.Select(f => f.Name))</dd>
-                    <dt>Order</dt>
-                    <dd>@_pokemon.Order</dd>
-                    <dt>Default</dt>
-                    <dd>@_pokemon.IsDefault</dd>
-                </dl>
-            </div>
-
-            <div class="section-card">
-                <h2>Stats</h2>
-                <div class="stat-list">
-                    @foreach (var stat in _pokemon.Stats)
+        <div class="detail-layout">
+            <aside class="infobox">
+                <div class="infobox-title">@_pokemon.Name</div>
+                <div class="infobox-image">
+                    @if (!string.IsNullOrWhiteSpace(_spriteUrl))
                     {
-                        <div class="stat-row">
-                            <span>@stat.Stat.Name</span>
-                            <strong>@stat.BaseStat</strong>
+                        <img src="@_spriteUrl" alt="@_pokemon.Name sprite" />
+                    }
+                </div>
+
+                <table>
+                    <tr><th>National №</th><td>@_pokemon.Id</td></tr>
+                    <tr><th>Type</th><td>@string.Join(", ", _pokemon.Types.Select(t => t.Type.Name))</td></tr>
+                    <tr><th>Abilities</th><td>@string.Join(", ", _pokemon.Abilities.Select(a => a.Ability.Name))</td></tr>
+                    <tr><th>Height</th><td>@_pokemon.Height</td></tr>
+                    <tr><th>Weight</th><td>@_pokemon.Weight</td></tr>
+                    <tr><th>Base exp.</th><td>@_pokemon.BaseExperience</td></tr>
+                    <tr><th>Forms</th><td>@_pokemon.Forms.Count</td></tr>
+                    <tr><th>Moves</th><td>@_pokemon.Moves.Count</td></tr>
+                    <tr><th>Held items</th><td>@_pokemon.HeldItems.Count</td></tr>
+                </table>
+            </aside>
+
+            <section class="detail-body">
+                <div class="section-card">
+                    <h2>Pokédex data</h2>
+                    @if (_species is null)
+                    {
+                        <p class="muted">Loading species data...</p>
+                    }
+                    else
+                    {
+                        <div class="species-summary">
+                            <p class="species-flavor">@GetEnglishFlavorText(_species)</p>
+
+                            <div class="fact-grid">
+                                <div><span>Species</span><strong>@_species.Name</strong></div>
+                                <div><span>Generation</span><strong>@_species.Generation.Name</strong></div>
+                                <div><span>Habitat</span><strong>@DisplayName(_species.Habitat?.Name)</strong></div>
+                                <div><span>Growth rate</span><strong>@DisplayName(_species.GrowthRate?.Name)</strong></div>
+                                <div><span>Color</span><strong>@DisplayName(_species.Color?.Name)</strong></div>
+                                <div><span>Capture rate</span><strong>@(_species.CaptureRate?.ToString() ?? "—")</strong></div>
+                                <div><span>Base happiness</span><strong>@(_species.BaseHappiness?.ToString() ?? "—")</strong></div>
+                                <div><span>Hatch counter</span><strong>@(_species.HatchCounter?.ToString() ?? "—")</strong></div>
+                                <div><span>Egg groups</span><strong>@string.Join(", ", _species.EggGroups.Select(g => g.Name))</strong></div>
+                                <div><span>Forms switchable</span><strong>@(_species.FormsSwitchable ? "Yes" : "No")</strong></div>
+                                <div><span>Legendary</span><strong>@(_species.IsLegendary ? "Yes" : "No")</strong></div>
+                                <div><span>Mythical</span><strong>@(_species.IsMythical ? "Yes" : "No")</strong></div>
+                                <div><span>Baby</span><strong>@(_species.IsBaby ? "Yes" : "No")</strong></div>
+                                <div><span>Gender rate</span><strong>@_species.GenderRate</strong></div>
+                            </div>
                         </div>
                     }
                 </div>
-            </div>
-        </section>
-    </div>
-}
+
+                <div class="section-card">
+                    <h2>Base stats</h2>
+                    <div class="stat-list">
+                        @foreach (var stat in _pokemon.Stats)
+                        {
+                            var percentage = GetStatPercent(stat.BaseStat);
+                            <div class="stat-row">
+                                <div class="stat-meta">
+                                    <span>@stat.Stat.Name</span>
+                                    <strong>@stat.BaseStat</strong>
+                                </div>
+                                <div class="stat-track" aria-hidden="true">
+                                    <div class="stat-fill" style="@($"--stat-color:{GetStatColor(stat.Stat.Name)};--stat-width:{percentage}%")"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h2>Moves</h2>
+                    @if (_moves.Count == 0)
+                    {
+                        <p class="muted">No move data found.</p>
+                    }
+                    else
+                    {
+                        <div class="moves-grid">
+                            @foreach (var move in _moves)
+                            {
+                                <article class="move-card">
+                                    <div class="move-header">
+                                        <div>
+                                            <div class="move-level">@move.LevelLabel</div>
+                                            <h3>@move.Name</h3>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(move.Move?.Type?.Name))
+                                        {
+                                            <span class="type-pill type-@move.Move.Type.Name">@move.Move.Type.Name</span>
+                                        }
+                                    </div>
+
+                                    @if (move.Move is not null)
+                                    {
+                                        <dl class="move-meta">
+                                            <dt>Damage class</dt>
+                                            <dd>@DisplayName(move.Move.DamageClass?.Name)</dd>
+                                            <dt>Power</dt>
+                                            <dd>@(move.Move.Power?.ToString() ?? "—")</dd>
+                                            <dt>Accuracy</dt>
+                                            <dd>@(move.Move.Accuracy?.ToString() ?? "—")</dd>
+                                            <dt>PP</dt>
+                                            <dd>@(move.Move.Pp?.ToString() ?? "—")</dd>
+                                            <dt>Priority</dt>
+                                            <dd>@move.Move.Priority</dd>
+                                            <dt>Target</dt>
+                                            <dd>@DisplayName(move.Move.Target?.Name)</dd>
+                                        </dl>
+
+                                        @if (!string.IsNullOrWhiteSpace(GetEnglishShortEffect(move.Move)))
+                                        {
+                                            <p class="move-effect">@GetEnglishShortEffect(move.Move)</p>
+                                        }
+                                    }
+
+                                    <div class="move-chips">
+                                        @foreach (var method in move.Methods)
+                                        {
+                                            <span class="move-chip">@method</span>
+                                        }
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="section-card">
+                    <h2>Evolution chart</h2>
+                    @if (_evolutionChain is null)
+                    {
+                        <p class="muted">Loading evolution data...</p>
+                    }
+                    else
+                    {
+                        <PokemonEvolutionNode Node="_evolutionChain.Chain" SpriteMap="_spriteBySpecies" />
+                    }
+                </div>
+
+                <div class="section-card">
+                    <h2>Abilities and forms</h2>
+                    <div class="info-grid">
+                        <div>
+                            <h3>Abilities</h3>
+                            <ul class="plain-list">
+                                @foreach (var ability in _pokemon.Abilities)
+                                {
+                                    <li>@ability.Ability.Name</li>
+                                }
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>Forms</h3>
+                            <ul class="plain-list">
+                                @foreach (var form in _pokemon.Forms)
+                                {
+                                    <li>@form.Name</li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    }
+</div>
 
 @code {
     [Parameter]
     public string Name { get; set; } = string.Empty;
 
     private PokeApiNet.Pokemon? _pokemon;
+    private PokemonSpecies? _species;
+    private EvolutionChain? _evolutionChain;
+    private IReadOnlyDictionary<string, string?> _spriteBySpecies = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<LearnedMoveViewModel> _moves = Array.Empty<LearnedMoveViewModel>();
+    private string? _spriteUrl;
 
     protected override async Task OnParametersSetAsync()
     {
         _pokemon = await PokemonApi.GetPokemonAsync(Name);
+        if (_pokemon is null)
+        {
+            _species = null;
+            _evolutionChain = null;
+            _spriteBySpecies = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            _moves = Array.Empty<LearnedMoveViewModel>();
+            _spriteUrl = null;
+            return;
+        }
+
+        var movesTask = BuildMoveSummariesAsync(_pokemon);
+        var speciesTask = PokemonApi.GetSpeciesAsync(_pokemon.Species.Name);
+        var evolutionTask = PokemonApi.GetEvolutionChainAsync(_pokemon.Species.Name);
+        var allPokemonTask = PokemonApi.GetAllPokemonAsync();
+
+        await Task.WhenAll(movesTask, speciesTask, evolutionTask, allPokemonTask).ConfigureAwait(false);
+
+        _moves = await movesTask.ConfigureAwait(false);
+        _species = await speciesTask.ConfigureAwait(false);
+        _evolutionChain = await evolutionTask.ConfigureAwait(false);
+        var allPokemon = await allPokemonTask.ConfigureAwait(false);
+        _spriteBySpecies = allPokemon
+            .Where(p => !string.IsNullOrWhiteSpace(p.Species?.Name) || !string.IsNullOrWhiteSpace(p.Name))
+            .GroupBy(p => p.Species?.Name ?? p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => GetSpriteUrl(g.First()),
+                StringComparer.OrdinalIgnoreCase);
+
+        _spriteUrl = GetSpriteUrl(_pokemon);
     }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private async Task<IReadOnlyList<LearnedMoveViewModel>> BuildMoveSummariesAsync(PokeApiNet.Pokemon pokemon)
+    {
+        var groups = pokemon.Moves
+            .GroupBy(move => move.Move.Name, StringComparer.OrdinalIgnoreCase);
+
+        var tasks = groups.Select(async group =>
+        {
+            var move = await PokemonApi.GetMoveAsync(group.Key).ConfigureAwait(false);
+            var levelLearned = group
+                .SelectMany(x => x.VersionGroupDetails)
+                .Where(detail => string.Equals(detail.MoveLearnMethod?.Name, "level-up", StringComparison.OrdinalIgnoreCase))
+                .Select(detail => detail.LevelLearnedAt)
+                .DefaultIfEmpty()
+                .Min();
+
+            int? level = levelLearned == 0 ? null : levelLearned;
+            var methods = group
+                .SelectMany(x => x.VersionGroupDetails)
+                .Select(detail => detail.MoveLearnMethod?.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(FormatToken)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name)
+                .ToArray();
+
+            return new LearnedMoveViewModel(
+                group.Key,
+                level,
+                level is null ? "—" : $"Lv. {level}",
+                methods,
+                move);
+        });
+
+        var moves = await Task.WhenAll(tasks).ConfigureAwait(false);
+        return moves
+            .OrderBy(move => move.Level ?? int.MaxValue)
+            .ThenBy(move => move.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string? GetSpriteUrl(PokeApiNet.Pokemon pokemon)
+    {
+        return pokemon.Sprites?.Other?.DreamWorld?.FrontDefault
+               ?? pokemon.Sprites?.Other?.OfficialArtwork?.FrontDefault
+               ?? pokemon.Sprites?.FrontDefault;
+    }
+
+    private static string GetEnglishFlavorText(PokemonSpecies species)
+    {
+        return species.FlavorTextEntries
+            .FirstOrDefault(entry => string.Equals(entry.Language?.Name, "en", StringComparison.OrdinalIgnoreCase))
+            ?.FlavorText.Replace("\n", " ")
+            .Replace("\f", " ")
+            ?? "No Pokédex flavor text available.";
+    }
+
+    private static string? GetEnglishShortEffect(Move move)
+    {
+        return move.EffectEntries
+            .FirstOrDefault(entry => string.Equals(entry.Language?.Name, "en", StringComparison.OrdinalIgnoreCase))
+            ?.ShortEffect;
+    }
+
+    private static string DisplayName(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "—" : FormatToken(value);
+    }
+
+    private static string FormatToken(string value)
+    {
+        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('-', ' '));
+    }
+
+    private static double GetStatPercent(int value)
+    {
+        return Math.Clamp(value / 255d * 100d, 0d, 100d);
+    }
+
+    private static string GetStatColor(string statName)
+    {
+        return statName.ToLowerInvariant() switch
+        {
+            "hp" => "#22c55e",
+            "attack" => "#ef4444",
+            "defense" => "#3b82f6",
+            "special-attack" => "#8b5cf6",
+            "special-defense" => "#14b8a6",
+            "speed" => "#f59e0b",
+            _ => "#64748b"
+        };
+    }
+
+    private sealed record LearnedMoveViewModel(
+        string Name,
+        int? Level,
+        string LevelLabel,
+        IReadOnlyList<string> Methods,
+        Move? Move);
 }
 
 <style>
+    .pokemon-detail-shell {
+        padding: 1rem;
+        color: var(--text);
+    }
+
     .detail-header {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
         margin-bottom: 1rem;
+    }
+
+    .back-link {
+        align-self: start;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: var(--accent);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
     }
 
     .detail-title h1 {
@@ -104,16 +380,16 @@ else
     .dex-number {
         display: inline-block;
         font-weight: 700;
-        color: #6b7280;
+        color: var(--muted);
     }
 
     .detail-title p {
         margin: 0.25rem 0 0;
-        color: #6b7280;
+        color: var(--muted);
         text-transform: capitalize;
     }
 
-    .bulba-layout {
+    .detail-layout {
         display: grid;
         grid-template-columns: 320px minmax(0, 1fr);
         gap: 1.5rem;
@@ -121,16 +397,16 @@ else
     }
 
     .infobox {
-        border: 1px solid #a2b6d6;
-        background: #f8fbff;
+        border: 1px solid var(--border);
+        background: var(--surface);
         border-radius: 0.35rem;
         overflow: hidden;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
 
     .infobox-title {
-        background: #cfe0f6;
-        border-bottom: 1px solid #a2b6d6;
+        background: var(--surface-alt);
+        border-bottom: 1px solid var(--border);
         font-weight: 700;
         text-align: center;
         padding: 0.75rem;
@@ -143,7 +419,7 @@ else
         justify-content: center;
         min-height: 240px;
         padding: 1rem;
-        background: linear-gradient(180deg, #ffffff, #edf4ff);
+        background: linear-gradient(180deg, var(--surface), var(--surface-alt));
     }
 
     .infobox-image img {
@@ -159,7 +435,7 @@ else
 
     .infobox th,
     .infobox td {
-        border-top: 1px solid #c8d6ea;
+        border-top: 1px solid var(--border);
         padding: 0.55rem 0.75rem;
         vertical-align: top;
     }
@@ -167,7 +443,7 @@ else
     .infobox th {
         width: 40%;
         text-align: left;
-        background: #eef5ff;
+        background: var(--surface-alt);
     }
 
     .detail-body {
@@ -176,10 +452,10 @@ else
     }
 
     .section-card {
-        border: 1px solid #ddd;
+        border: 1px solid var(--border);
         border-radius: 0.75rem;
         padding: 1rem;
-        background: white;
+        background: var(--surface);
     }
 
     .section-card h2 {
@@ -187,9 +463,44 @@ else
         font-size: 1.2rem;
     }
 
+    .species-summary {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .species-flavor {
+        margin: 0;
+        color: var(--muted);
+        font-style: italic;
+    }
+
+    .fact-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    .fact-grid div {
+        display: grid;
+        gap: 0.25rem;
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--surface-alt);
+    }
+
+    .fact-grid span {
+        font-size: 0.8rem;
+        color: var(--muted);
+    }
+
+    .fact-grid strong {
+        text-transform: capitalize;
+    }
+
     .details-list {
         display: grid;
-        grid-template-columns: 140px 1fr;
+        grid-template-columns: 160px 1fr;
         gap: 0.5rem 1rem;
         margin: 0;
     }
@@ -203,26 +514,183 @@ else
         text-transform: capitalize;
     }
 
+    .mono {
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        text-transform: none !important;
+        word-break: break-all;
+    }
+
     .stat-list {
         display: grid;
-        gap: 0.5rem;
+        gap: 0.75rem;
     }
 
     .stat-row {
+        display: grid;
+        gap: 0.4rem;
+    }
+
+    .stat-meta {
         display: flex;
         justify-content: space-between;
         gap: 1rem;
-        padding: 0.55rem 0.75rem;
-        border-radius: 0.5rem;
-        background: #f8fafc;
     }
 
-    .stat-row span {
+    .stat-meta span {
         text-transform: capitalize;
     }
 
+    .stat-track {
+        height: 0.9rem;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(148, 163, 184, 0.2);
+    }
+
+    .stat-fill {
+        width: var(--stat-width);
+        height: 100%;
+        background: var(--stat-color);
+        border-radius: inherit;
+    }
+
+    .moves-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+    }
+
+    .move-card {
+        border: 1px solid var(--border);
+        border-radius: 0.85rem;
+        padding: 1rem;
+        background: var(--surface-alt);
+        display: grid;
+        gap: 0.8rem;
+    }
+
+    .move-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .move-header h3 {
+        margin: 0.15rem 0 0;
+        text-transform: capitalize;
+        font-size: 1.05rem;
+    }
+
+    .move-level {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 700;
+    }
+
+    .type-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: capitalize;
+        color: #1f2937;
+        background: #e5e7eb;
+    }
+
+    .type-fire { background: #fed7aa; }
+    .type-water { background: #bfdbfe; }
+    .type-grass { background: #bbf7d0; }
+    .type-electric { background: #fef08a; }
+    .type-ice { background: #cffafe; }
+    .type-fighting { background: #fecaca; }
+    .type-poison { background: #e9d5ff; }
+    .type-ground { background: #f5d0a9; }
+    .type-flying { background: #ddd6fe; }
+    .type-psychic { background: #fbcfe8; }
+    .type-bug { background: #d9f99d; }
+    .type-rock { background: #e7e5e4; }
+    .type-ghost { background: #ddd6fe; }
+    .type-dragon { background: #c7d2fe; }
+    .type-dark { background: #d1d5db; }
+    .type-steel { background: #e5e7eb; }
+    .type-fairy { background: #fce7f3; }
+    .type-normal { background: #f3f4f6; }
+
+    .move-meta {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 0.35rem 0.75rem;
+        margin: 0;
+    }
+
+    .move-meta dt {
+        font-size: 0.8rem;
+        color: var(--muted);
+        font-weight: 700;
+    }
+
+    .move-meta dd {
+        margin: 0;
+        text-transform: capitalize;
+    }
+
+    .move-effect {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+    }
+
+    .move-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .move-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        background: rgba(148, 163, 184, 0.2);
+        color: var(--text);
+        text-transform: capitalize;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .info-grid h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+    }
+
+    .plain-list {
+        margin: 0;
+        padding-left: 1.2rem;
+        text-transform: capitalize;
+    }
+
+    .muted {
+        color: var(--muted);
+    }
+
     @@media (max-width: 900px) {
-        .bulba-layout {
+        .detail-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .fact-grid {
             grid-template-columns: 1fr;
         }
     }

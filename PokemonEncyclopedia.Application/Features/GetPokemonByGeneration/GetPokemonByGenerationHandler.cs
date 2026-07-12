@@ -1,16 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using PokeApiNet;
-using PokemonEncyclopedia.Application.Models;
 using PokemonEncyclopedia.Application.Services;
 
-namespace PokemonEncyclopedia.Application.Handlers;
+namespace PokemonEncyclopedia.Application.Features.GetPokemonByGeneration;
 
-/// <summary>
-///     Handles requests to retrieve all Pokémon species for a given generation
-///     by reading from the cached Pokémon catalog.
-/// </summary>
-public class GetPokemonByGenerationHandler
+public sealed class GetPokemonByGenerationHandler
     : IRequestHandler<GetPokemonByGenerationQuery, IEnumerable<NamedApiResource<PokemonSpecies>>>
 {
     private readonly ILogger<GetPokemonByGenerationHandler> _logger;

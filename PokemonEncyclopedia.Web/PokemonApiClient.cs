@@ -44,4 +44,55 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
         return pokemon;
     }
+
+    public async Task<Move?> GetMoveAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = name.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+
+        var cacheKey = $"move:{normalizedName}";
+        if (cache.TryGetValue(cacheKey, out Move? cachedMove))
+            return cachedMove;
+
+        var move = await httpClient.GetFromJsonAsync<Move>($"/api/PokeApi/move/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+            .ConfigureAwait(false);
+        if (move is not null)
+            cache.Set(cacheKey, move, CacheDuration);
+
+        return move;
+    }
+
+    public async Task<PokemonSpecies?> GetSpeciesAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = name.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+
+        var cacheKey = $"species:{normalizedName}";
+        if (cache.TryGetValue(cacheKey, out PokemonSpecies? cachedSpecies))
+            return cachedSpecies;
+
+        var species = await httpClient.GetFromJsonAsync<PokemonSpecies>($"/api/PokeApi/species/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+            .ConfigureAwait(false);
+        if (species is not null)
+            cache.Set(cacheKey, species, CacheDuration);
+
+        return species;
+    }
+
+    public async Task<EvolutionChain?> GetEvolutionChainAsync(string speciesName, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = speciesName.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+
+        var cacheKey = $"evolution:{normalizedName}";
+        if (cache.TryGetValue(cacheKey, out EvolutionChain? cachedChain))
+            return cachedChain;
+
+        var chain = await httpClient.GetFromJsonAsync<EvolutionChain>($"/api/PokeApi/evolution/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+            .ConfigureAwait(false);
+        if (chain is not null)
+            cache.Set(cacheKey, chain, CacheDuration);
+
+        return chain;
+    }
 }

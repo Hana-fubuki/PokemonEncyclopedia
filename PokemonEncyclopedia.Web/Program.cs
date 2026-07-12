@@ -11,6 +11,8 @@ builder.Services.AddMemoryCache();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSingleton<PokemonFilterState>();
+builder.Services.AddSingleton<PokemonThemeState>();
 
 builder.Services.AddHttpClient<PokemonApiClient>(client =>
 {

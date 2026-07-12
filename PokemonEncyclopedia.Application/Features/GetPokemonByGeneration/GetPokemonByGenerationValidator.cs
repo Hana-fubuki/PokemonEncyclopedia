@@ -1,15 +1,14 @@
 using FluentValidation;
-using PokemonEncyclopedia.Application.Models;
 
-namespace PokemonEncyclopedia.Application.Validators;
+namespace PokemonEncyclopedia.Application.Features.GetPokemonByGeneration;
 
 /// <summary>
 ///     Validates <see cref="GetPokemonByGenerationQuery" /> instances.
 ///     Ensures the generation number is present and within the supported range (1–9).
 /// </summary>
-public class GetPokemonByGenerationQueryValidator : AbstractValidator<GetPokemonByGenerationQuery>
+public class GetPokemonByGenerationValidator : AbstractValidator<GetPokemonByGenerationQuery>
 {
-    public GetPokemonByGenerationQueryValidator()
+    public GetPokemonByGenerationValidator()
     {
         RuleFor(x => x.Generation)
             .NotEmpty()

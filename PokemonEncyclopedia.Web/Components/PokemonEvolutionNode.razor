@@ -1,0 +1,195 @@
+@using System.Globalization
+@using PokeApiNet
+
+<div class="evolution-node">
+    <div class="evolution-card">
+        <div class="evolution-sprite">
+            @if (!string.IsNullOrWhiteSpace(SpriteUrl))
+            {
+                <img src="@SpriteUrl" alt="@Node.Species.Name sprite" loading="lazy" />
+            }
+            else
+            {
+                <div class="sprite-placeholder">No sprite</div>
+            }
+        </div>
+
+        <div class="evolution-name">@Node.Species.Name</div>
+
+        @if (Node.IsBaby)
+        {
+            <div class="evolution-badge">Baby</div>
+        }
+
+        @if (Node.EvolutionDetails.Count > 0)
+        {
+            <div class="evolution-requirements">
+                @foreach (var detail in Node.EvolutionDetails)
+                {
+                    <span class="evolution-chip">@FormatDetail(detail)</span>
+                }
+            </div>
+        }
+    </div>
+
+    @if (Node.EvolvesTo.Count > 0)
+    {
+        <div class="evolution-children">
+            @foreach (var child in Node.EvolvesTo)
+            {
+                <PokemonEvolutionNode Node="child" SpriteMap="SpriteMap" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public ChainLink Node { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyDictionary<string, string?> SpriteMap { get; set; } = new Dictionary<string, string?>();
+
+    private string? SpriteUrl => SpriteMap.TryGetValue(Node.Species.Name, out var sprite) ? sprite : null;
+
+    private static string FormatDetail(EvolutionDetail detail)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(detail.Trigger?.Name))
+            parts.Add(FormatToken(detail.Trigger.Name));
+
+        if (detail.MinLevel is not null)
+            parts.Add($"Lv. {detail.MinLevel}");
+
+        if (!string.IsNullOrWhiteSpace(detail.Item?.Name))
+            parts.Add($"Item: {FormatToken(detail.Item.Name)}");
+
+        if (!string.IsNullOrWhiteSpace(detail.HeldItem?.Name))
+            parts.Add($"Held: {FormatToken(detail.HeldItem.Name)}");
+
+        if (!string.IsNullOrWhiteSpace(detail.KnownMove?.Name))
+            parts.Add($"Move: {FormatToken(detail.KnownMove.Name)}");
+
+        if (!string.IsNullOrWhiteSpace(detail.KnownMoveType?.Name))
+            parts.Add($"Type: {FormatToken(detail.KnownMoveType.Name)}");
+
+        if (!string.IsNullOrWhiteSpace(detail.TradeSpecies?.Name))
+            parts.Add($"Trade for {FormatToken(detail.TradeSpecies.Name)}");
+
+        if (!string.IsNullOrWhiteSpace(detail.PartySpecies?.Name))
+            parts.Add($"Party: {FormatToken(detail.PartySpecies.Name)}");
+
+        if (!string.IsNullOrWhiteSpace(detail.PartyType?.Name))
+            parts.Add($"Party type: {FormatToken(detail.PartyType.Name)}");
+
+        if (detail.MinHappiness is not null)
+            parts.Add($"Happiness {detail.MinHappiness}");
+
+        if (detail.MinAffection is not null)
+            parts.Add($"Affection {detail.MinAffection}");
+
+        if (detail.MinBeauty is not null)
+            parts.Add($"Beauty {detail.MinBeauty}");
+
+        if (!string.IsNullOrWhiteSpace(detail.TimeOfDay))
+            parts.Add($"Time: {detail.TimeOfDay}");
+
+        if (detail.NeedsOverworldRain)
+            parts.Add("Rain");
+
+        if (detail.TurnUpsideDown)
+            parts.Add("Turn upside down");
+
+        if (detail.Gender is not null)
+            parts.Add(detail.Gender == 1 ? "Female" : detail.Gender == 2 ? "Male" : $"Gender {detail.Gender}");
+
+        if (parts.Count == 0)
+            return "Unknown requirement";
+
+        return string.Join(" • ", parts);
+    }
+
+    private static string FormatToken(string value)
+    {
+        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('-', ' '));
+    }
+}
+
+<style>
+    .evolution-node {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .evolution-card {
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        background: var(--surface);
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        text-align: center;
+    }
+
+    .evolution-sprite {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 140px;
+        background: linear-gradient(180deg, var(--surface), var(--surface-alt));
+        border-radius: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .evolution-sprite img {
+        max-width: 100%;
+        max-height: 120px;
+    }
+
+    .sprite-placeholder {
+        color: var(--muted);
+    }
+
+    .evolution-name {
+        text-transform: capitalize;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    .evolution-badge {
+        display: inline-flex;
+        margin-top: 0.5rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: var(--accent);
+        color: var(--accent-foreground);
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .evolution-requirements {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        justify-content: center;
+        margin-top: 0.75rem;
+    }
+
+    .evolution-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.2);
+        color: var(--text);
+        font-size: 0.75rem;
+    }
+
+    .evolution-children {
+        display: grid;
+        gap: 1rem;
+        padding-left: 1rem;
+        border-left: 2px solid var(--border);
+        margin-left: 1rem;
+    }
+</style>

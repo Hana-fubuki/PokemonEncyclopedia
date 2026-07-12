@@ -17,6 +17,12 @@ public interface IPokemonCatalogService
 
     Task<Pokemon?> GetPokemonByNameAsync(string name, CancellationToken cancellationToken);
 
+    Task<Move?> GetMoveByNameAsync(string name, CancellationToken cancellationToken);
+
+    Task<PokemonSpecies?> GetPokemonSpeciesByNameAsync(string name, CancellationToken cancellationToken);
+
+    Task<EvolutionChain?> GetEvolutionChainBySpeciesNameAsync(string speciesName, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<NamedApiResource<PokemonSpecies>>> GetPokemonSpeciesByGenerationAsync(
         int generation,
         CancellationToken cancellationToken);

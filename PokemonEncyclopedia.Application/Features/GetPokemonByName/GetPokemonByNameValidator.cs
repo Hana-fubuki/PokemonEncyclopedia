@@ -1,11 +1,10 @@
 using FluentValidation;
-using PokemonEncyclopedia.Application.Models;
 
-namespace PokemonEncyclopedia.Application.Validators;
+namespace PokemonEncyclopedia.Application.Features.GetPokemonByName;
 
-public class GetPokemonByNameQueryValidator : AbstractValidator<GetPokemonByNameQuery>
+public class GetPokemonByNameValidator : AbstractValidator<GetPokemonByNameQuery>
 {
-    public GetPokemonByNameQueryValidator()
+    public GetPokemonByNameValidator()
     {
         RuleFor(x => x.Name)
             .NotEmpty()

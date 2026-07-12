@@ -1,12 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using PokeApiNet;
-using PokemonEncyclopedia.Application.Models;
 using PokemonEncyclopedia.Application.Services;
 
-namespace PokemonEncyclopedia.Application.Handlers;
+namespace PokemonEncyclopedia.Application.Features.GetPokemonByName;
 
-public class GetPokemonByNameHandler : IRequestHandler<GetPokemonByNameQuery, Pokemon?>
+public sealed class GetPokemonByNameHandler : IRequestHandler<GetPokemonByNameQuery, Pokemon?>
 {
     private readonly ILogger<GetPokemonByNameHandler> _logger;
     private readonly IPokemonCatalogService _pokemonCatalogService;

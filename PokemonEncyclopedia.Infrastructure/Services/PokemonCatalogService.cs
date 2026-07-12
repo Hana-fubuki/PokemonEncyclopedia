@@ -68,6 +68,48 @@ public class PokemonCatalogService : IPokemonCatalogService
         return pokemon.FirstOrDefault(p => string.Equals(p.Name, normalizedName, StringComparison.OrdinalIgnoreCase));
     }
 
+    public async Task<Move?> GetMoveByNameAsync(string name, CancellationToken cancellationToken)
+    {
+        var normalizedName = name.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            return null;
+
+        var resource = await FindNamedResourceAsync<Move>(normalizedName, cancellationToken).ConfigureAwait(false);
+        return resource is null
+            ? null
+            : await _pokeApiClient.GetResourceAsync<Move>(resource.Name, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<PokemonSpecies?> GetPokemonSpeciesByNameAsync(string name, CancellationToken cancellationToken)
+    {
+        var normalizedName = name.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+            return null;
+
+        var resource = await FindNamedResourceAsync<PokemonSpecies>(normalizedName, cancellationToken).ConfigureAwait(false);
+        return resource is null
+            ? null
+            : await _pokeApiClient.GetResourceAsync<PokemonSpecies>(resource.Name, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<EvolutionChain?> GetEvolutionChainBySpeciesNameAsync(string speciesName, CancellationToken cancellationToken)
+    {
+        var pokemon = await GetPokemonByNameAsync(speciesName, cancellationToken).ConfigureAwait(false);
+        if (pokemon is null)
+            return null;
+
+        var species = await GetPokemonSpeciesByNameAsync(pokemon.Species.Name, cancellationToken).ConfigureAwait(false);
+        if (species?.EvolutionChain is null)
+            return null;
+
+        var evolutionChainId = GetResourceId(species.EvolutionChain);
+        if (evolutionChainId is null)
+            return null;
+
+        return await _pokeApiClient.GetResourceAsync<EvolutionChain>(evolutionChainId.Value, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<NamedApiResource<PokemonSpecies>>> GetPokemonSpeciesByGenerationAsync(
         int generation,
         CancellationToken cancellationToken)
@@ -199,5 +241,24 @@ public class PokemonCatalogService : IPokemonCatalogService
             9 => (906, 1025),
             _ => throw new ArgumentOutOfRangeException(nameof(generation), generation, "Generation must be between 1 and 9.")
         };
+    }
+
+    private async Task<NamedApiResource<T>?> FindNamedResourceAsync<T>(string name, CancellationToken cancellationToken)
+        where T : NamedApiResource
+    {
+        await foreach (var resource in _pokeApiClient.GetAllNamedResourcesAsync<T>(cancellationToken)
+                           .WithCancellation(cancellationToken)
+                           .ConfigureAwait(false))
+        {
+            if (string.Equals(resource.Name, name, StringComparison.OrdinalIgnoreCase))
+                return resource;
+        }
+
+        return null;
+    }
+
+    private static int? GetResourceId(object resource)
+    {
+        return resource.GetType().GetProperty("Id")?.GetValue(resource) is int id ? id : null;
     }
 }

@@ -1,7 +1,7 @@
 using MediatR;
 using PokeApiNet;
 
-namespace PokemonEncyclopedia.Application.Models;
+namespace PokemonEncyclopedia.Application.Features.GetPokemonByGeneration;
 
 /// <summary>
 ///     Integer that represents the pokemon generation to get the pokemon species from

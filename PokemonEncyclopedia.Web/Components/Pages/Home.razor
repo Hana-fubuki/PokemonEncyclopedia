@@ -1,156 +1,85 @@
 @page "/"
+@rendermode InteractiveServer
 @attribute [StreamRendering(true)]
 @attribute [OutputCache(Duration = 300)]
+@implements IDisposable
 @inject PokemonApiClient PokemonApi
+@inject PokemonFilterState FilterState
 
 <PageTitle>Pokédex</PageTitle>
 
-<div class="pokedex-shell">
-    <aside class="filters-panel">
-        <div class="sidebar-title">
+<section class="pokedex-content">
+    <div class="pokedex-header">
+        <div>
             <h1>Pokédex</h1>
-            <p>Search and refine the catalog.</p>
-        </div>
-
-        <label class="search-label">
-            <span>Search</span>
-            <input class="search-input" value="@_searchText" @oninput="HandleSearchInput" placeholder="Search Pokémon..." />
-        </label>
-
-        <div class="filter-group">
-            <div class="filter-title">Generation</div>
-            @foreach (var generation in Enumerable.Range(1, 9))
-            {
-                <label class="filter-check">
-                    <input type="checkbox" checked="@_selectedGenerations.Contains(generation)" @onchange="() => ToggleGeneration(generation)" />
-                    <span>Gen @generation</span>
-                </label>
-            }
-        </div>
-
-        <div class="filter-group">
-            <div class="filter-title">Type</div>
-            @if (_availableTypes.Count == 0)
-            {
-                <p class="muted">Loading types...</p>
-            }
-            else
-            {
-                @foreach (var type in _availableTypes)
-                {
-                    <label class="filter-check">
-                        <input type="checkbox" checked="@_selectedTypes.Contains(type)" @onchange="() => ToggleType(type)" />
-                        <span class="type-pill type-@type">@type</span>
-                    </label>
-                }
-            }
-        </div>
-
-        <button class="clear-button" @onclick="ClearFilters">Clear filters</button>
-    </aside>
-
-    <section class="pokedex-content">
-        <div class="pokedex-header">
             <p>Select a Pokémon to view a detail page.</p>
-            <div class="result-count">@_filteredPokemon.Count Pokémon</div>
         </div>
+        <div class="result-count">@_filteredPokemon.Count Pokémon</div>
+    </div>
 
-        @if (_pokemon is null)
-        {
-            <p><em>Loading...</em></p>
-        }
-        else if (_filteredPokemon.Count == 0)
-        {
-            <p class="muted">No Pokémon match the selected filters.</p>
-        }
-        else
-        {
-            <div class="pokemon-grid">
-                @foreach (var pokemon in _filteredPokemon)
-                {
-                    var sprite = pokemon.Sprites?.Other?.DreamWorld?.FrontDefault
-                        ?? pokemon.Sprites?.Other?.OfficialArtwork?.FrontDefault
-                        ?? pokemon.Sprites?.FrontDefault;
+    @if (_pokemon is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else if (_filteredPokemon.Count == 0)
+    {
+        <p class="muted">No Pokémon match the selected filters.</p>
+    }
+    else
+    {
+        <div class="pokemon-grid">
+            @foreach (var pokemon in _filteredPokemon)
+            {
+                var sprite = pokemon.Sprites?.Other?.DreamWorld?.FrontDefault
+                    ?? pokemon.Sprites?.Other?.OfficialArtwork?.FrontDefault
+                    ?? pokemon.Sprites?.FrontDefault;
 
-                    <a class="pokemon-card" href="@($"/pokemon/{pokemon.Name}")">
-                        <div class="pokemon-image">
-                            @if (!string.IsNullOrWhiteSpace(sprite))
+                <a class="pokemon-card" href="@($"/pokemon/{pokemon.Name}")">
+                    <div class="pokemon-image">
+                        @if (!string.IsNullOrWhiteSpace(sprite))
+                        {
+                            <img src="@sprite" alt="@pokemon.Name sprite" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="pokemon-placeholder">No sprite</div>
+                        }
+                    </div>
+                    <div class="pokemon-meta">
+                        <div class="pokemon-name">#@pokemon.Id @pokemon.Name</div>
+                        <div class="pokemon-types">
+                            @foreach (var type in pokemon.Types.Select(t => t.Type.Name))
                             {
-                                <img src="@sprite" alt="@pokemon.Name sprite" loading="lazy" />
-                            }
-                            else
-                            {
-                                <div class="pokemon-placeholder">No sprite</div>
+                                <span class="type-pill type-@type">@type</span>
                             }
                         </div>
-                        <div class="pokemon-meta">
-                            <div class="pokemon-name">#@pokemon.Id @pokemon.Name</div>
-                            <div class="pokemon-types">
-                                @foreach (var type in pokemon.Types.Select(t => t.Type.Name))
-                                {
-                                    <span class="type-pill type-@type">@type</span>
-                                }
-                            </div>
-                        </div>
-                    </a>
-                }
-            </div>
-        }
-    </section>
-</div>
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</section>
 
 @code {
     private IReadOnlyList<PokeApiNet.Pokemon>? _pokemon;
     private IReadOnlyList<PokeApiNet.Pokemon> _filteredPokemon = Array.Empty<PokeApiNet.Pokemon>();
-    private readonly HashSet<int> _selectedGenerations = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    private readonly HashSet<string> _selectedTypes = [];
-    private string _searchText = string.Empty;
-    private IReadOnlyList<string> _availableTypes = Array.Empty<string>();
 
     protected override async Task OnInitializedAsync()
     {
+        FilterState.Changed += HandleFilterChanged;
         _pokemon = await PokemonApi.GetAllPokemonAsync();
-        _availableTypes = _pokemon
-            .SelectMany(p => p.Types.Select(t => t.Type.Name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(type => type)
-            .ToArray();
         ApplyFilters();
     }
 
-    private void ToggleGeneration(int generation)
+    public void Dispose()
     {
-        if (!_selectedGenerations.Add(generation))
-            _selectedGenerations.Remove(generation);
-
-        ApplyFilters();
+        FilterState.Changed -= HandleFilterChanged;
     }
 
-    private void ToggleType(string type)
+    private void HandleFilterChanged()
     {
-        if (!_selectedTypes.Add(type))
-            _selectedTypes.Remove(type);
-
         ApplyFilters();
-    }
-
-    private void ClearFilters()
-    {
-        _searchText = string.Empty;
-        _selectedGenerations.Clear();
-        foreach (var generation in Enumerable.Range(1, 9))
-        {
-            _selectedGenerations.Add(generation);
-        }
-
-        _selectedTypes.Clear();
-        ApplyFilters();
-    }
-
-    private void HandleSearchInput(ChangeEventArgs args)
-    {
-        _searchText = args.Value?.ToString() ?? string.Empty;
-        ApplyFilters();
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private void ApplyFilters()
@@ -161,7 +90,7 @@
             return;
         }
 
-        var search = _searchText.Trim();
+        var search = FilterState.SearchText.Trim();
         _filteredPokemon = _pokemon
             .Where(pokemon => MatchesSearch(pokemon, search))
             .Where(MatchesGeneration)
@@ -179,15 +108,15 @@
 
     private bool MatchesGeneration(PokeApiNet.Pokemon pokemon)
     {
-        return _selectedGenerations.Contains(GetGeneration(pokemon.Id));
+        return FilterState.SelectedGenerations.Contains(GetGeneration(pokemon.Id));
     }
 
     private bool MatchesType(PokeApiNet.Pokemon pokemon)
     {
-        if (_selectedTypes.Count == 0)
+        if (FilterState.SelectedTypes.Count == 0)
             return true;
 
-        return pokemon.Types.Any(type => _selectedTypes.Contains(type.Type.Name));
+        return pokemon.Types.Any(type => FilterState.SelectedTypes.Contains(type.Type.Name));
     }
 
     private static int GetGeneration(int id)
@@ -208,77 +137,9 @@
 }
 
 <style>
-    .pokedex-shell {
-        display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
-        gap: 1.5rem;
-        align-items: start;
-    }
-
-    .filters-panel {
-        position: sticky;
-        top: 1rem;
-        align-self: start;
-        padding: 1rem;
-        border: 1px solid #d7d7d7;
-        border-radius: 1rem;
-        background: #f8f9fb;
-    }
-
-    .sidebar-title h1,
-    .pokedex-header h1 {
-        margin: 0 0 0.5rem 0;
-    }
-
-    .sidebar-title p,
-    .pokedex-header p {
-        margin: 0;
-        color: #6b7280;
-    }
-
-    .search-label {
-        display: grid;
-        gap: 0.4rem;
-        margin-bottom: 1rem;
-    }
-
-    .search-input {
-        width: 100%;
-        padding: 0.65rem 0.8rem;
-        border: 1px solid #cfcfcf;
-        border-radius: 0.75rem;
-    }
-
-    .filter-group {
-        margin-top: 1rem;
-    }
-
-    .filter-title {
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-    }
-
-    .filter-check {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.35rem 0;
-        text-transform: capitalize;
-    }
-
-    .clear-button {
-        margin-top: 1rem;
-        width: 100%;
-        padding: 0.7rem 0.9rem;
-        border: 0;
-        border-radius: 0.75rem;
-        background: #1d4ed8;
-        color: white;
-        font-weight: 600;
-    }
-
     .pokedex-content {
         min-width: 0;
+        padding: 1rem;
     }
 
     .pokedex-header {
@@ -287,6 +148,15 @@
         align-items: center;
         gap: 1rem;
         margin-bottom: 1rem;
+    }
+
+    .pokedex-header h1 {
+        margin: 0 0 0.5rem 0;
+    }
+
+    .pokedex-header p {
+        margin: 0;
+        color: var(--muted);
     }
 
     .result-count {
@@ -305,12 +175,12 @@
 
     .pokemon-card {
         display: block;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border);
         border-radius: 1rem;
         padding: 1rem;
         text-decoration: none;
         color: inherit;
-        background: white;
+        background: var(--surface);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
@@ -325,7 +195,7 @@
         align-items: center;
         justify-content: center;
         min-height: 120px;
-        background: linear-gradient(180deg, #fff, #f8f8fc);
+        background: linear-gradient(180deg, var(--surface), var(--surface-alt));
         border-radius: 0.75rem;
     }
 
@@ -340,7 +210,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #888;
+        color: var(--muted);
     }
 
     .pokemon-meta {
@@ -392,16 +262,14 @@
     .type-normal { background: #f3f4f6; }
 
     .muted {
-        color: #6b7280;
+        color: var(--muted);
     }
 
-    @@media (max-width: 900px) {
-        .pokedex-shell {
-            grid-template-columns: 1fr;
-        }
+    .theme-dark .pokedex-content {
+        color: var(--text);
+    }
 
-        .filters-panel {
-            position: static;
-        }
+    .theme-light .pokedex-content {
+        color: var(--text);
     }
 </style>

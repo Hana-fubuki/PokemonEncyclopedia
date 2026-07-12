@@ -1,10 +1,9 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using PokeApiNet;
-using PokemonEncyclopedia.Application.Models;
 using PokemonEncyclopedia.Application.Services;
 
-namespace PokemonEncyclopedia.Application.Handlers;
+namespace PokemonEncyclopedia.Application.Features.GetAllPokemon;
 
 public sealed class GetAllPokemonHandler : IRequestHandler<GetAllPokemonQuery, IReadOnlyList<Pokemon>>
 {

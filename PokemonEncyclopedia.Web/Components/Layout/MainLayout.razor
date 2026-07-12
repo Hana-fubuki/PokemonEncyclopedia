@@ -1,9 +1,60 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject PokemonFilterState FilterState
+@inject PokemonThemeState ThemeState
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu/>
-    </div>
+<div class="page @(ThemeState.IsDarkMode ? "theme-dark" : "theme-light")">
+    <aside class="sidebar">
+        <div class="sidebar-title">
+            <h1>Pokédex</h1>
+            <p>Search and refine the catalog.</p>
+        </div>
+
+        <div class="filters-panel">
+            <label class="search-label">
+                <span>Search</span>
+                <input class="search-input"
+                       value="@FilterState.SearchText"
+                       @oninput="HandleSearchInput"
+                       placeholder="Search Pokémon..." />
+            </label>
+
+            <div class="filter-group">
+                <div class="filter-title">Generation</div>
+                @foreach (var generation in Enumerable.Range(1, 9))
+                {
+                    <label class="filter-check">
+                        <input type="checkbox"
+                               checked="@FilterState.SelectedGenerations.Contains(generation)"
+                               @onchange="() => FilterState.ToggleGeneration(generation)" />
+                        <span>Gen @generation</span>
+                    </label>
+                }
+            </div>
+
+            <div class="filter-group">
+                <div class="filter-title">Type</div>
+                @foreach (var type in KnownTypes)
+                {
+                    <label class="filter-check">
+                        <input type="checkbox"
+                               checked="@FilterState.SelectedTypes.Contains(type)"
+                               @onchange="() => FilterState.ToggleType(type)" />
+                        <span class="type-pill type-@type">@type</span>
+                    </label>
+                }
+            </div>
+
+            <button class="clear-button" @onclick="FilterState.ClearFilters">Clear filters</button>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="theme-toggle" @onclick="ThemeState.Toggle">
+                <span>Dark mode</span>
+                <strong>@(ThemeState.IsDarkMode ? "On" : "Off")</strong>
+            </button>
+        </div>
+    </aside>
 
     <main>
         <div class="top-row px-4">
@@ -21,3 +72,39 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private void HandleFilterChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleSearchInput(ChangeEventArgs args)
+    {
+        FilterState.SearchText = args.Value?.ToString() ?? string.Empty;
+    }
+
+    public void Dispose()
+    {
+        FilterState.Changed -= HandleFilterChanged;
+        ThemeState.Changed -= HandleThemeChanged;
+    }
+
+    protected override void OnInitialized()
+    {
+        FilterState.Changed += HandleFilterChanged;
+        ThemeState.Changed += HandleThemeChanged;
+    }
+
+    private void HandleThemeChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private static readonly string[] KnownTypes =
+    [
+        "normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison",
+        "ground", "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark",
+        "steel", "fairy"
+    ];
+}
