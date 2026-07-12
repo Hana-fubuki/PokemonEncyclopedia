@@ -169,6 +169,44 @@
                 </div>
 
                 <div class="section-card">
+                    <h2>Varieties</h2>
+                    @if (_varieties.Count == 0)
+                    {
+                        <p class="muted">No varieties available.</p>
+                    }
+                    else
+                    {
+                        <div class="varieties-grid">
+                            @foreach (var variety in _varieties)
+                            {
+                                var varietySprite = GetSpriteUrl(variety);
+                                <button type="button" class="variety-card" @onclick="() => NavigateToPokemonAsync(variety.Name)">
+                                    <div class="variety-sprite">
+                                        @if (!string.IsNullOrWhiteSpace(varietySprite))
+                                        {
+                                            <img src="@varietySprite" alt="@variety.Name sprite" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <div class="sprite-placeholder">No sprite</div>
+                                        }
+                                    </div>
+                                    <div class="variety-info">
+                                        <div class="variety-name">@variety.Name</div>
+                                        <div class="variety-types">
+                                            @foreach (var type in variety.Types)
+                                            {
+                                                <span class="type-badge type-@type.Type.Name">@type.Type.Name</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="section-card">
                     <h2>Abilities</h2>
                     <div class="abilities-forms-container">
                         <div class="abilities-section">
@@ -238,6 +276,7 @@
     private PokeApiNet.Pokemon? _pokemon;
     private PokemonSpecies? _species;
     private EvolutionChain? _evolutionChain;
+    private IReadOnlyList<PokeApiNet.Pokemon> _varieties = Array.Empty<PokeApiNet.Pokemon>();
     private IReadOnlyDictionary<string, string?> _spriteBySpecies = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<LearnedMoveViewModel> _moves = Array.Empty<LearnedMoveViewModel>();
     private string? _spriteUrl;
@@ -256,6 +295,7 @@
         _pokemon = null;
         _species = null;
         _evolutionChain = null;
+        _varieties = Array.Empty<PokeApiNet.Pokemon>();
         _spriteBySpecies = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         _moves = Array.Empty<LearnedMoveViewModel>();
         _spriteUrl = null;
@@ -273,6 +313,11 @@
     private void GoBack()
     {
         Navigation.NavigateTo("/");
+    }
+
+    private void NavigateToPokemonAsync(string pokemonName)
+    {
+        Navigation.NavigateTo($"/pokemon/{pokemonName}");
     }
 
     private async Task OnAbilitySelectedAsync(string abilityName)
@@ -315,6 +360,7 @@
             var allPokemonTask = PokemonApi.GetAllPokemonAsync(cancellationToken);
             var speciesTask = PokemonApi.GetSpeciesAsync(pokemon.Species.Name, cancellationToken);
             var movesTask = BuildMoveSummariesAsync(pokemon, cancellationToken);
+            var varietiesTask = PokemonApi.GetPokemonVarietiesAsync(pokemon.Species.Name, cancellationToken);
 
             // Fire-and-forget: update sprite map in background
             _ = UpdateSpriteMapAsync(allPokemonTask, loadVersion, cancellationToken);
@@ -331,13 +377,14 @@
                 : PokemonApi.GetEvolutionChainAsync(chainId.Value, cancellationToken);
 
             // Wait for both evolution and moves in parallel
-            await Task.WhenAll(evolutionTask, movesTask).ConfigureAwait(false);
+            await Task.WhenAll(evolutionTask, movesTask, varietiesTask).ConfigureAwait(false);
 
             if (!IsCurrentLoad(loadVersion, cancellationToken))
                 return;
 
             _evolutionChain = await evolutionTask.ConfigureAwait(false);
             _moves = await movesTask.ConfigureAwait(false);
+            _varieties = await varietiesTask.ConfigureAwait(false);
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1072,6 +1119,84 @@
         box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
     }
 
+    .varieties-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+
+    .variety-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--surface-alt);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+        font-family: inherit;
+    }
+
+    .variety-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        background: var(--surface);
+    }
+
+    .variety-sprite {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 120px;
+        height: 120px;
+        background: linear-gradient(135deg, var(--surface), var(--surface-alt));
+        border-radius: 0.5rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .variety-sprite img {
+        max-width: 100%;
+        max-height: 110px;
+        object-fit: contain;
+    }
+
+    .variety-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .variety-name {
+        font-weight: 700;
+        text-transform: capitalize;
+        font-size: 0.95rem;
+        color: var(--text);
+    }
+
+    .variety-types {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.35rem;
+    }
+
+    .type-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: capitalize;
+        color: #1f2937;
+        background: #e5e7eb;
+    }
+
     .muted {
         color: var(--muted);
     }
@@ -1091,6 +1216,10 @@
 
         .abilities-forms-container {
             grid-template-columns: 1fr;
+        }
+
+        .varieties-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
         }
     }
 </style>

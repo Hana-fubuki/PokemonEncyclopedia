@@ -177,4 +177,44 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
         return ability;
     }
+
+    public async Task<IReadOnlyList<Pokemon>> GetPokemonVarietiesAsync(string speciesName, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = speciesName.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedName)) return Array.Empty<Pokemon>();
+
+        var cacheKey = $"varieties:{normalizedName}";
+        if (cache.TryGetValue(cacheKey, out IReadOnlyList<Pokemon>? cachedVarieties))
+            return cachedVarieties;
+
+        var sw = Stopwatch.StartNew();
+        var varieties = new List<Pokemon>();
+        var species = await GetSpeciesAsync(normalizedName, cancellationToken).ConfigureAwait(false);
+        
+        if (species?.Varieties is not null && species.Varieties.Count > 0)
+        {
+            foreach (var variety in species.Varieties)
+            {
+                if (variety.Pokemon?.Name is not null)
+                {
+                    var pokemon = await GetPokemonAsync(variety.Pokemon.Name, cancellationToken).ConfigureAwait(false);
+                    if (pokemon is not null)
+                    {
+                        varieties.Add(pokemon);
+                    }
+                }
+            }
+        }
+
+        sw.Stop();
+        var varietiesList = (IReadOnlyList<Pokemon>)varieties.AsReadOnly();
+        Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("client.operation", "varieties"),
+            new KeyValuePair<string, object?>("species.name", normalizedName));
+        
+        if (varieties.Count > 0)
+            cache.Set(cacheKey, varietiesList, CacheDuration);
+
+        return varietiesList;
+    }
 }
