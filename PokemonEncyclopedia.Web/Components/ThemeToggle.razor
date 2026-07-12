@@ -1,7 +1,5 @@
 @rendermode InteractiveServer
 @inject PokemonThemeState ThemeState
-@inject IJSRuntime JSRuntime
-@implements IAsyncDisposable
 
 <button type="button" class="theme-toggle" @onclick="ToggleTheme" title="Toggle dark mode">
     <span>@(ThemeState.IsDarkMode ? "☀️" : "🌙")</span>
@@ -14,17 +12,15 @@
         GC.SuppressFinalize(this);
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        await ThemeState.InitializeAsync(JSRuntime);
         ThemeState.Changed += HandleThemeChanged;
-        StateHasChanged();
     }
 
     private async Task ToggleTheme()
     {
         await ThemeState.Toggle();
-        await InvokeAsync(StateHasChanged);
+        StateHasChanged();
     }
 
     private void HandleThemeChanged()

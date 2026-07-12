@@ -27,10 +27,14 @@
 </div>
 
 @code {
-    protected override Task OnInitializedAsync()
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
     {
+        await ThemeState.InitializeAsync(JSRuntime);
         ThemeState.Changed += HandleThemeChanged;
-        return Task.CompletedTask;
+        StateHasChanged();
     }
 
     private void HandleThemeChanged()
