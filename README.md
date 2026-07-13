@@ -548,8 +548,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Authors
 
-- **Developer**: Josh
-- **Infrastructure**: Copilot
+- **Developer**: Josh Cohenour 
 
 ## Acknowledgments
 

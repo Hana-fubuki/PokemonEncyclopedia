@@ -27,7 +27,7 @@ When you push code to `main` or `develop` branches (or create a PR):
 - View full error messages
 
 ### Coverage Reports
-- Download HTML report from **Artifacts** section
+- Download the markdown summary from **Artifacts** section
 - View coverage percentage and trends
 - See line-by-line coverage details
 
@@ -79,7 +79,7 @@ The workflow includes:
 - Test execution with coverage collection
 - Code quality analysis
 - Security scanning
-- Coverage report generation and upload
+- Coverage summary generation and upload
 - Artifact retention (30 days)
 
 ## Pipeline Details
@@ -89,8 +89,9 @@ The workflow includes:
 - Builds project in Release configuration
 - Runs xUnit tests with coverage
 - Generates Cobertura coverage reports
+- Generates a markdown coverage summary
 - Uploads to Codecov.io
-- Posts coverage comment on PRs
+- Posts the coverage summary on PRs
 
 ### Code Quality Job
 - Checks code formatting compliance
