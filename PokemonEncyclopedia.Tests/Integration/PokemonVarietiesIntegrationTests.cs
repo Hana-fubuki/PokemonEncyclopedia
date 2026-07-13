@@ -4,6 +4,7 @@ using PokemonEncyclopedia.Web;
 namespace PokemonEncyclopedia.Tests.Integration;
 
 [Collection(TestExecutionSettings.IntegrationCollectionName)]
+[Trait("Category", "Integration")]
 public class PokemonVarietiesIntegrationTests
 {
     [Fact]

@@ -1,6 +1,7 @@
 namespace PokemonEncyclopedia.Tests.Integration;
 
 [Collection(TestExecutionSettings.IntegrationCollectionName)]
+[Trait("Category", "Integration")]
 public class ApiEndpointsTests
 {
     private static readonly TimeSpan DefaultTimeout = TestExecutionSettings.IntegrationTimeout;

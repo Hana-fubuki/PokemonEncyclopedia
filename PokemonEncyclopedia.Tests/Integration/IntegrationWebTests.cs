@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 namespace PokemonEncyclopedia.Tests.Integration;
 
 [Collection(TestExecutionSettings.IntegrationCollectionName)]
+[Trait("Category", "Integration")]
 public class IntegrationWebTests
 {
     private static readonly TimeSpan DefaultTimeout = TestExecutionSettings.IntegrationTimeout;

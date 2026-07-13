@@ -33,21 +33,31 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
 
-    - name: Run tests with code coverage
+    - name: Run non-integration tests with code coverage
       run: |
         dotnet test \
           --no-build \
           --configuration Release \
+          --filter "Category!=Integration" \
           --logger "trx;LogFileName=test-results.trx" \
           --collect:"XPlat Code Coverage" \
-          --results-directory ./coverage \
+          --results-directory ./coverage/unit \
           -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+    - name: Run integration tests (no coverage)
+      run: |
+        dotnet test \
+          --no-build \
+          --configuration Release \
+          --filter "Category=Integration" \
+          --logger "trx;LogFileName=integration-test-results.trx" \
+          --results-directory ./coverage/integration
 
     - name: Generate coverage report
       if: always()
       uses: danielpalme/ReportGenerator-GitHub-Action@5.2.0
       with:
-        reports: './coverage/**/coverage.cobertura.xml;./**/TestResults/**/coverage.cobertura.xml'
+        reports: './coverage/unit/**/coverage.cobertura.xml;./**/TestResults/**/coverage.cobertura.xml'
         targetdir: './coverage-report'
         reporttypes: 'HtmlInline;Badges;JsonSummary'
         verbosity: 'Info'
@@ -55,7 +65,7 @@ jobs:
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
-        files: './coverage/**/coverage.cobertura.xml'
+        files: './coverage/unit/**/coverage.cobertura.xml'
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
