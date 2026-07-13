@@ -1,11 +1,16 @@
 using FluentValidation;
 using FluentValidation.Results;
 using MediatR;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PokeApiNet;
+using PokemonEncyclopedia.ApiService;
 using PokemonEncyclopedia.ApiService.Controllers;
 using PokemonEncyclopedia.ApiService.HealthChecks;
 using PokemonEncyclopedia.ApiService.Middleware;
@@ -25,6 +30,88 @@ namespace PokemonEncyclopedia.Tests.Unit;
 
 public class ApiServiceCoverageTests
 {
+    [Fact]
+    public void ApiServiceStartup_DetectsIntegrationTestMode()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["DEPLOYMENT_MODE"] = "test"
+            })
+            .Build();
+
+        ApiServiceStartup.IsIntegrationTestMode(configuration).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ApiServiceStartup_ResolvesHangfireCosmosSettings()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["HANGFIREDB_CONNECTIONSTRING"] =
+                    "AccountEndpoint=https://localhost:8081/;AccountKey=secret;DisableServerCertificateValidation=true",
+                ["HANGFIREDB_DATABASENAME"] = "jobs"
+            })
+            .Build();
+
+        var settings = ApiServiceStartup.ResolveHangfireCosmosSettings(configuration);
+
+        settings.Endpoint.Should().Be(new Uri("https://localhost:8081/"));
+        settings.AuthSecret.Should().Be("secret");
+        settings.DatabaseName.Should().Be("jobs");
+        settings.DisableServerCertificateValidation.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ApiServiceStartup_BuildsEmulatorCosmosOptions()
+    {
+        var environment = Mock.Of<IHostEnvironment>(h => h.EnvironmentName == Environments.Development);
+        var options =
+            ApiServiceStartup.CreateCosmosClientOptions(environment, new Uri("https://localhost:8081/"), false);
+
+        options.ConnectionMode.Should().Be(ConnectionMode.Gateway);
+        options.LimitToEndpoint.Should().BeTrue();
+        options.HttpClientFactory.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ApiServiceStartup_RegistersHostedServicesConditionally()
+    {
+        var integrationBuilder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Production
+        });
+        integrationBuilder.Configuration["DEPLOYMENT_MODE"] = "test";
+        ApiServiceStartup.ConfigureServices(integrationBuilder, true);
+        integrationBuilder.Services.Any(sd => sd.ImplementationType == typeof(PokemonCatalogWarmupHostedService))
+            .Should().BeFalse();
+        integrationBuilder.Services.Any(sd => sd.ImplementationType == typeof(HangfireServerHostedService)).Should()
+            .BeFalse();
+
+        var runtimeBuilder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Development
+        });
+        runtimeBuilder.Configuration["HANGFIREDB_URI"] = "https://localhost:8081/";
+        runtimeBuilder.Configuration["HANGFIREDB_ACCOUNTKEY"] = "secret";
+        ApiServiceStartup.ConfigureServices(runtimeBuilder, false);
+        runtimeBuilder.Services.Any(sd => sd.ImplementationType == typeof(PokemonCatalogWarmupHostedService)).Should()
+            .BeTrue();
+        runtimeBuilder.Services.Any(sd => sd.ImplementationType == typeof(HangfireServerHostedService)).Should()
+            .BeTrue();
+    }
+
+    [Fact]
+    public void ApiServiceStartup_ThrowsWhenHangfireConfigMissing()
+    {
+        var configuration = new ConfigurationBuilder().Build();
+
+        var act = () => ApiServiceStartup.ResolveHangfireCosmosSettings(configuration);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
     [Fact]
     public async Task PokeApiController_ReturnsExpectedResults()
     {
