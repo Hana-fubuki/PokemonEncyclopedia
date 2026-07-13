@@ -326,27 +326,27 @@ public class PokemonCatalogService : IPokemonCatalogService
                 ? "Refreshing Pokémon catalog cache"
                 : "Warming Pokémon catalog cache");
 
-            // Fetch species names directly from pokemon-species endpoint  
+            // Fetch species names directly from pokemon-species endpoint
             var speciesNames = new List<string>();
             int offset = 0;
             const int limit = 5000;
             const string pokeApiBaseUrl = "https://pokeapi.co/api/v2/";
-            
+
             try
             {
                 while (true)
                 {
                     var url = $"{pokeApiBaseUrl}pokemon-species?limit={limit}&offset={offset}";
                     _logger.LogDebug("Fetching from {Url}", url);
-                    
+
                     var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken)
                         .ConfigureAwait(false);
                     response.EnsureSuccessStatusCode();
-                    
+
                     var jsonContent = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                     using var jsonDoc = JsonDocument.Parse(jsonContent);
                     var root = jsonDoc.RootElement;
-                    
+
                     if (!root.TryGetProperty("results", out var resultsElement))
                         break;
                     

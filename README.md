@@ -5,7 +5,7 @@ A comprehensive .NET Aspire-based web application for exploring Pokémon data wi
 ## Badges
 
 [![CI Build](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml/badge.svg?branch=main)](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml)
-[![Code Coverage](https://codecov.io/gh/Hana-fubuki/PokemonEncyclopedia/branch/main/graph/badge.svg)](https://codecov.io/gh/Hana-fubuki/PokemonEncyclopedia)
+![Code Coverage](https://img.shields.io/badge/Code%20Coverage-83%25-success?style=flat)
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-blue?logo=dotnet)
 ![Built with Docker](https://img.shields.io/badge/Built%20with-Docker-2496ED?logo=docker&logoColor=white)
 
