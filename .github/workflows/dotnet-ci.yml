@@ -49,7 +49,7 @@ jobs:
         dotnet test \
           --no-build \
           --configuration Release \
-          --filter "Category=Integration" \
+          --filter "Category=Integration&Category!=RequiresAppHost" \
           --logger "trx;LogFileName=integration-test-results.trx" \
           --results-directory ./coverage/integration
 
