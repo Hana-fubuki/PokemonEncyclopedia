@@ -2,9 +2,10 @@ using Microsoft.Extensions.Logging;
 
 namespace PokemonEncyclopedia.Tests.Integration;
 
+[Collection(TestExecutionSettings.IntegrationCollectionName)]
 public class IntegrationWebTests
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan DefaultTimeout = TestExecutionSettings.IntegrationTimeout;
     private const string ApiResourceName = "apiservice";
 
     [Fact]

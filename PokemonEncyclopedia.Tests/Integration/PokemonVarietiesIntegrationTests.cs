@@ -3,6 +3,7 @@ using PokemonEncyclopedia.Web;
 
 namespace PokemonEncyclopedia.Tests.Integration;
 
+[Collection(TestExecutionSettings.IntegrationCollectionName)]
 public class PokemonVarietiesIntegrationTests
 {
     [Fact]

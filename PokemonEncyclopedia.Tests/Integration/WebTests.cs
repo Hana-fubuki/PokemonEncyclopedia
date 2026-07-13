@@ -2,9 +2,10 @@ using Microsoft.Extensions.Logging;
 
 namespace PokemonEncyclopedia.Tests;
 
+[Collection(TestExecutionSettings.IntegrationCollectionName)]
 public class WebTests
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan DefaultTimeout = TestExecutionSettings.IntegrationTimeout;
 
     [Fact]
     public async Task GetWebResourceRootReturnsOkStatusCode()
