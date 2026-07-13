@@ -1,19 +1,119 @@
 using FluentValidation;
 using FluentValidation.Results;
+using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
+using PokeApiNet;
+using PokemonEncyclopedia.ApiService.Controllers;
 using PokemonEncyclopedia.ApiService.HealthChecks;
 using PokemonEncyclopedia.ApiService.Middleware;
 using PokemonEncyclopedia.ApiService.Services;
+using PokemonEncyclopedia.Application.Features.GetAbilityByName;
+using PokemonEncyclopedia.Application.Features.GetAllAbilities;
+using PokemonEncyclopedia.Application.Features.GetAllPokemon;
+using PokemonEncyclopedia.Application.Features.GetEvolutionChainBySpeciesName;
+using PokemonEncyclopedia.Application.Features.GetMoveByName;
+using PokemonEncyclopedia.Application.Features.GetPokemonByGeneration;
+using PokemonEncyclopedia.Application.Features.GetPokemonByName;
+using PokemonEncyclopedia.Application.Features.GetPokemonSpeciesByName;
 using PokemonEncyclopedia.Application.Services;
 using PokemonEncyclopedia.Infrastructure.Services;
-using PokeApiNet;
 
 namespace PokemonEncyclopedia.Tests.Unit;
 
 public class ApiServiceCoverageTests
 {
+    [Fact]
+    public async Task PokeApiController_ReturnsExpectedResults()
+    {
+        var pokemon = new[] { new Pokemon { Id = 1, Name = "bulbasaur" } };
+        var pokemonSpecies = new[] { new PokemonSpecies { Id = 1, Name = "bulbasaur" } };
+        var moves = new[] { new Move { Id = 1, Name = "tackle" } };
+        var species = new PokemonSpecies { Id = 1, Name = "bulbasaur" };
+        var ability = new Ability { Id = 65, Name = "overgrow" };
+        var evolution = new EvolutionChain { Id = 1 };
+        var catalog = new Mock<IPokemonCatalogService>();
+        catalog.Setup(s => s.GetEvolutionChainByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(evolution);
+        catalog.Setup(s => s.GetLegendaryPokemonNamesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HashSet<string> { "mewtwo" });
+
+        var mediator = new Mock<IMediator>();
+        mediator.Setup(m => m.Send(It.IsAny<GetAllPokemonQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pokemonSpecies);
+        mediator.Setup(m => m.Send(It.IsAny<GetAllPokemonDetailsQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pokemon);
+        mediator.Setup(m => m.Send(It.IsAny<GetPokemonByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pokemon[0]);
+        mediator.Setup(m => m.Send(It.IsAny<GetPokemonByGenerationQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<NamedApiResource<PokemonSpecies>>());
+        mediator.Setup(m => m.Send(It.IsAny<GetMoveByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(moves[0]);
+        mediator.Setup(m => m.Send(It.IsAny<GetPokemonSpeciesByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(species);
+        mediator.Setup(m => m.Send(It.IsAny<GetEvolutionChainBySpeciesNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(evolution);
+        mediator.Setup(m => m.Send(It.IsAny<GetAllAbilitiesQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { ability });
+        mediator.Setup(m => m.Send(It.IsAny<GetAbilityByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ability);
+
+        var controller = new PokeApiController(mediator.Object);
+
+        (await controller.GetAllPokemon(CancellationToken.None)).Result.Should().BeOfType<OkObjectResult>();
+        (await controller.GetAllPokemonDetails(CancellationToken.None)).Result.Should().BeOfType<OkObjectResult>();
+        (await controller.GetPokemonByName("bulbasaur", CancellationToken.None)).Result.Should()
+            .BeOfType<OkObjectResult>();
+        (await controller.GetPokemonByGeneration(1, CancellationToken.None)).Result.Should().BeOfType<OkObjectResult>();
+        (await controller.GetMoveByName("tackle", CancellationToken.None)).Result.Should().BeOfType<OkObjectResult>();
+        (await controller.GetSpeciesByName("bulbasaur", CancellationToken.None)).Result.Should()
+            .BeOfType<OkObjectResult>();
+        (await controller.GetEvolutionChain(1, catalog.Object, CancellationToken.None)).Result.Should()
+            .BeOfType<OkObjectResult>();
+        (await controller.GetEvolutionChainBySpecies("bulbasaur", CancellationToken.None)).Result.Should()
+            .BeOfType<OkObjectResult>();
+        (await controller.GetLegendaryPokemonNames(catalog.Object, CancellationToken.None)).Result.Should()
+            .BeOfType<OkObjectResult>();
+        (await controller.GetAllAbilities(CancellationToken.None)).Result.Should().BeOfType<OkObjectResult>();
+        (await controller.GetAbilityByName("overgrow", CancellationToken.None)).Result.Should()
+            .BeOfType<OkObjectResult>();
+
+        mediator.VerifyAll();
+        catalog.VerifyAll();
+    }
+
+    [Fact]
+    public async Task PokeApiController_ReturnsNotFoundForMissingResources()
+    {
+        var mediator = new Mock<IMediator>();
+        var catalog = new Mock<IPokemonCatalogService>();
+        mediator.Setup(m => m.Send(It.IsAny<GetPokemonByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Pokemon?)null);
+        mediator.Setup(m => m.Send(It.IsAny<GetMoveByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Move?)null);
+        mediator.Setup(m => m.Send(It.IsAny<GetPokemonSpeciesByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PokemonSpecies?)null);
+        mediator.Setup(m => m.Send(It.IsAny<GetEvolutionChainBySpeciesNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((EvolutionChain?)null);
+        mediator.Setup(m => m.Send(It.IsAny<GetAbilityByNameQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Ability?)null);
+        catalog.Setup(s => s.GetEvolutionChainByIdAsync(0, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((EvolutionChain?)null);
+
+        var controller = new PokeApiController(mediator.Object);
+
+        (await controller.GetPokemonByName("missingno", CancellationToken.None)).Result.Should()
+            .BeOfType<NotFoundResult>();
+        (await controller.GetMoveByName("missing", CancellationToken.None)).Result.Should().BeOfType<NotFoundResult>();
+        (await controller.GetSpeciesByName("missing", CancellationToken.None)).Result.Should()
+            .BeOfType<NotFoundResult>();
+        (await controller.GetEvolutionChainBySpecies("missing", CancellationToken.None)).Result.Should()
+            .BeOfType<NotFoundResult>();
+        (await controller.GetAbilityByName("missing", CancellationToken.None)).Result.Should()
+            .BeOfType<NotFoundResult>();
+    }
+
     [Fact]
     public async Task ApiExceptionMiddleware_WritesValidationProblemDetails()
     {
@@ -46,7 +146,8 @@ public class ApiServiceCoverageTests
         context.Request.Path = "/api/pokemon/pikachu";
         context.Response.Body = new MemoryStream();
 
-        var middleware = new ApiExceptionMiddleware(_ => throw new InvalidOperationException("boom"), Mock.Of<ILogger<ApiExceptionMiddleware>>());
+        var middleware = new ApiExceptionMiddleware(_ => throw new InvalidOperationException("boom"),
+            Mock.Of<ILogger<ApiExceptionMiddleware>>());
 
         await middleware.InvokeAsync(context);
 
@@ -89,7 +190,8 @@ public class ApiServiceCoverageTests
     {
         var catalog = new Mock<IPokemonCatalogService>();
         catalog.SetupGet(s => s.IsWarm).Returns(isWarm);
-        catalog.SetupGet(s => s.LastWarmupError).Returns(errorMessage is null ? null : new InvalidOperationException(errorMessage));
+        catalog.SetupGet(s => s.LastWarmupError)
+            .Returns(errorMessage is null ? null : new InvalidOperationException(errorMessage));
 
         var healthCheck = new PokemonCatalogWarmupHealthCheck(catalog.Object);
         var result = await healthCheck.CheckHealthAsync(new HealthCheckContext());
@@ -104,9 +206,12 @@ public class ApiServiceCoverageTests
         catalog.Setup(s => s.GetAllPokemonAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<Pokemon>());
         catalog.Setup(s => s.GetAllMovesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<Move>());
         catalog.Setup(s => s.GetAllAbilitiesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<Ability>());
-        catalog.Setup(s => s.GetAllPokemonSpeciesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<PokemonSpecies>());
+        catalog.Setup(s => s.GetAllPokemonSpeciesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<PokemonSpecies>());
 
-        var service = new TestPokemonCatalogWarmupHostedService(catalog.Object, Mock.Of<ILogger<PokemonCatalogWarmupHostedService>>());
+        var service =
+            new TestPokemonCatalogWarmupHostedService(catalog.Object,
+                Mock.Of<ILogger<PokemonCatalogWarmupHostedService>>());
 
         await service.RunAsync(CancellationToken.None);
 
@@ -122,9 +227,12 @@ public class ApiServiceCoverageTests
         var catalog = new Mock<IPokemonCatalogService>();
         var cts = new CancellationTokenSource();
         cts.Cancel();
-        catalog.Setup(s => s.GetAllPokemonAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new OperationCanceledException());
+        catalog.Setup(s => s.GetAllPokemonAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
 
-        var service = new TestPokemonCatalogWarmupHostedService(catalog.Object, Mock.Of<ILogger<PokemonCatalogWarmupHostedService>>());
+        var service =
+            new TestPokemonCatalogWarmupHostedService(catalog.Object,
+                Mock.Of<ILogger<PokemonCatalogWarmupHostedService>>());
 
         var act = () => service.RunAsync(cts.Token);
 
@@ -159,7 +267,8 @@ public class ApiServiceCoverageTests
     public async Task PokemonSpeciesRefreshJob_CallsRefresh()
     {
         var catalog = new Mock<IPokemonCatalogService>();
-        catalog.Setup(s => s.GetAllPokemonSpeciesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<PokemonSpecies>());
+        catalog.Setup(s => s.GetAllPokemonSpeciesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<PokemonSpecies>());
         var job = new PokemonSpeciesRefreshJob(catalog.Object, Mock.Of<ILogger<PokemonSpeciesRefreshJob>>());
 
         await job.Execute();
@@ -171,7 +280,8 @@ public class ApiServiceCoverageTests
     public async Task PokemonLegendaryRefreshJob_CallsRefresh()
     {
         var catalog = new Mock<IPokemonCatalogService>();
-        catalog.Setup(s => s.GetLegendaryPokemonNamesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new HashSet<string>());
+        catalog.Setup(s => s.GetLegendaryPokemonNamesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HashSet<string>());
         var job = new PokemonLegendaryRefreshJob(catalog.Object, Mock.Of<ILogger<PokemonLegendaryRefreshJob>>());
 
         await job.Execute();

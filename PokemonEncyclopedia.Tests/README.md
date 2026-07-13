@@ -174,13 +174,16 @@ These tests are ready for CI/CD pipelines. Example GitHub Actions workflow:
 - name: Run tests
   run: dotnet test --logger trx --collect:"XPlat Code Coverage"
 
-- name: Copy coverage file
-  run: find coverage -name 'coverage.cobertura.xml' -exec cp {} coverage/coverage.cobertura.xml \;
+- name: Run AppHost integration tests with coverage
+  run: dotnet test --filter "Category=Integration&Category=RequiresAppHost" --logger trx --collect:"XPlat Code Coverage"
+
+- name: Merge coverage reports
+  run: reportgenerator "-reports:coverage/unit/**/coverage.cobertura.xml;coverage/apphost/**/coverage.cobertura.xml" "-targetdir:coverage/merged" "-reporttypes:Cobertura"
 
 - name: Code Coverage Summary
   uses: irongut/CodeCoverageSummary@v1.3.0
   with:
-    filename: coverage/coverage.cobertura.xml
+    filename: coverage/merged/Cobertura.xml
     badge: true
     format: markdown
 ```

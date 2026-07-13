@@ -1,12 +1,12 @@
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using PokemonEncyclopedia.Infrastructure.DependencyInjection;
+using PokeApiNet;
 using PokemonEncyclopedia.Application.Services;
+using PokemonEncyclopedia.Infrastructure.DependencyInjection;
 using PokemonEncyclopedia.Infrastructure.Services;
 using PokemonEncyclopedia.Tests.Common;
-using PokeApiNet;
 using PokeType = PokeApiNet.Type;
 
 namespace PokemonEncyclopedia.Tests.Unit;
@@ -43,7 +43,8 @@ public class InfrastructureCoverageTests
         var result = await service.Catalog.GetAllPokemonAsync(CancellationToken.None);
 
         result.Select(p => p.Name).Should().Equal("bulbasaur", "charmeleon");
-        (await service.Catalog.GetPokemonByNameAsync("BULBASAUR", CancellationToken.None))!.Name.Should().Be("bulbasaur");
+        (await service.Catalog.GetPokemonByNameAsync("BULBASAUR", CancellationToken.None))!.Name.Should()
+            .Be("bulbasaur");
         (await service.Catalog.GetPokemonByNameAsync("   ", CancellationToken.None)).Should().BeNull();
     }
 
@@ -97,7 +98,8 @@ public class InfrastructureCoverageTests
     {
         var service = CreateService();
         var abilities = new[] { new Ability { Id = 65, Name = "overgrow" } };
-        await service.Cache.SetStringAsync("pokemon:abilities:all:v1", JsonSerializer.Serialize(abilities, JsonOptions));
+        await service.Cache.SetStringAsync("pokemon:abilities:all:v1",
+            JsonSerializer.Serialize(abilities, JsonOptions));
 
         var result = await service.Catalog.GetAllAbilitiesAsync(CancellationToken.None);
 
@@ -109,20 +111,25 @@ public class InfrastructureCoverageTests
     public async Task GetMoveAndAbilityAndSpeciesByName_ReturnCachedValues()
     {
         var service = CreateService();
-        await service.Cache.SetStringAsync("pokemon:move:v1:tackle", JsonSerializer.Serialize(new Move { Id = 1, Name = "tackle" }, JsonOptions));
-        await service.Cache.SetStringAsync("pokemon:ability:v1:overgrow", JsonSerializer.Serialize(new Ability { Id = 65, Name = "overgrow" }, JsonOptions));
-        await service.Cache.SetStringAsync("pokemon:species:v1:bulbasaur", JsonSerializer.Serialize(new PokemonSpecies { Id = 1, Name = "bulbasaur" }, JsonOptions));
+        await service.Cache.SetStringAsync("pokemon:move:v1:tackle",
+            JsonSerializer.Serialize(new Move { Id = 1, Name = "tackle" }, JsonOptions));
+        await service.Cache.SetStringAsync("pokemon:ability:v1:overgrow",
+            JsonSerializer.Serialize(new Ability { Id = 65, Name = "overgrow" }, JsonOptions));
+        await service.Cache.SetStringAsync("pokemon:species:v1:bulbasaur",
+            JsonSerializer.Serialize(new PokemonSpecies { Id = 1, Name = "bulbasaur" }, JsonOptions));
 
         (await service.Catalog.GetMoveByNameAsync("  tackle  ", CancellationToken.None))!.Name.Should().Be("tackle");
         (await service.Catalog.GetAbilityByNameAsync("OVERGROW", CancellationToken.None))!.Name.Should().Be("overgrow");
-        (await service.Catalog.GetPokemonSpeciesByNameAsync("bulbasaur", CancellationToken.None))!.Name.Should().Be("bulbasaur");
+        (await service.Catalog.GetPokemonSpeciesByNameAsync("bulbasaur", CancellationToken.None))!.Name.Should()
+            .Be("bulbasaur");
     }
 
     [Fact]
     public async Task GetEvolutionAndLegendaryData_ReturnsCachedValues()
     {
         var service = CreateService();
-        await service.Cache.SetStringAsync("pokemon:evolution:v1:1", JsonSerializer.Serialize(new EvolutionChain { Id = 1 }, JsonOptions));
+        await service.Cache.SetStringAsync("pokemon:evolution:v1:1",
+            JsonSerializer.Serialize(new EvolutionChain { Id = 1 }, JsonOptions));
         await service.Cache.SetStringAsync("pokemon:species:v1:bulbasaur", JsonSerializer.Serialize(new PokemonSpecies
         {
             Id = 1,
@@ -200,6 +207,23 @@ public class InfrastructureCoverageTests
     }
 
     [Fact]
+    public void GetResourceId_CoversUrlAndIdFallback()
+    {
+        InvokeGetResourceId(new { Url = "https://pokeapi.co/api/v2/evolution-chain/77/" }).Should().Be(77);
+        InvokeGetResourceId(new { Url = "/api/v2/evolution-chain/88/" }).Should().Be(88);
+        InvokeGetResourceId(new { Id = 42 }).Should().Be(42);
+    }
+
+    [Theory]
+    [InlineData(1, 1, 151)]
+    [InlineData(9, 906, 1025)]
+    public void GetGenerationDexRange_CoversBoundaryGenerations(int generation, int minId, int maxId)
+    {
+        var result = InvokeGenerationDexRange(generation);
+        result.Should().Be((minId, maxId));
+    }
+
+    [Fact]
     public async Task RefreshAllPokemonAsync_WarmsCacheWhenMissing()
     {
         var service = CreateService(new StaticHttpMessageHandler(
@@ -210,7 +234,8 @@ public class InfrastructureCoverageTests
         service.Cache.Get("pokemon:all:v1").Should().NotBeNull();
     }
 
-    private static (PokemonCatalogService Catalog, FakeDistributedCache Cache) CreateService(HttpMessageHandler? handler = null)
+    private static (PokemonCatalogService Catalog, FakeDistributedCache Cache) CreateService(
+        HttpMessageHandler? handler = null)
     {
         var cache = new FakeDistributedCache();
         var httpClient = new HttpClient(handler ?? new ThrowingHttpMessageHandler())
@@ -225,6 +250,21 @@ public class InfrastructureCoverageTests
             Mock.Of<ILogger<PokemonCatalogService>>());
 
         return (catalog, cache);
+    }
+
+    private static (int MinId, int MaxId) InvokeGenerationDexRange(int generation)
+    {
+        var method =
+            typeof(PokemonCatalogService).GetMethod("GetGenerationDexRange",
+                BindingFlags.NonPublic | BindingFlags.Static);
+        return ((int MinId, int MaxId))method!.Invoke(null, [generation])!;
+    }
+
+    private static int? InvokeGetResourceId(object resource)
+    {
+        var method =
+            typeof(PokemonCatalogService).GetMethod("GetResourceId", BindingFlags.NonPublic | BindingFlags.Static);
+        return (int?)method!.Invoke(null, [resource]);
     }
 
     private static Pokemon CreatePokemon(int id, string name, bool includeTypes = true)
@@ -246,19 +286,24 @@ public class InfrastructureCoverageTests
 
     private sealed class ThrowingHttpMessageHandler : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
             throw new InvalidOperationException($"Unexpected request: {request.RequestUri}");
+        }
     }
 
     private sealed class StaticHttpMessageHandler(params (string Url, string Content)[] responses) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
         {
-            var match = responses.FirstOrDefault(r => string.Equals(r.Url, request.RequestUri?.ToString(), StringComparison.OrdinalIgnoreCase));
+            var match = responses.FirstOrDefault(r =>
+                string.Equals(r.Url, request.RequestUri?.ToString(), StringComparison.OrdinalIgnoreCase));
             if (match == default)
                 throw new InvalidOperationException($"Unexpected request: {request.RequestUri}");
 
-            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(match.Content)
             });
