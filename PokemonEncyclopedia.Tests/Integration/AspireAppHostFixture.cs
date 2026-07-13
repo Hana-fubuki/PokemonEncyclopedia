@@ -6,21 +6,31 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
 {
     private const string ApiResourceName = "apiservice";
     private const string WebResourceName = "webfrontend";
+    private const string IntegrationTestModeVariable = "INTEGRATION_TEST_MODE";
+    private const string DeploymentModeVariable = "DEPLOYMENT_MODE";
 
     private Func<HttpClient>? _createApiClient;
     private Func<HttpClient>? _createWebClient;
     private Func<string, CancellationToken, Task>? _waitForHealthy;
     private Func<string, string>? _describeResourceState;
     private Func<Task>? _disposeApp;
+    private string? _originalIntegrationTestMode;
+    private string? _originalDeploymentMode;
+
     public async Task InitializeAsync()
     {
         using var startupCts = new CancellationTokenSource(TestExecutionSettings.IntegrationStartupTimeout);
 
         try
         {
+            _originalIntegrationTestMode = Environment.GetEnvironmentVariable(IntegrationTestModeVariable);
+            _originalDeploymentMode = Environment.GetEnvironmentVariable(DeploymentModeVariable);
+            Environment.SetEnvironmentVariable(IntegrationTestModeVariable, "true");
+            Environment.SetEnvironmentVariable(DeploymentModeVariable, "test");
+
             var appHost =
                 await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                    ["--INTEGRATION_TEST_MODE=true"],
+                    ["--DEPLOYMENT_MODE=test", "--INTEGRATION_TEST_MODE=true"],
                     startupCts.Token);
             appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
             {
@@ -79,6 +89,9 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        Environment.SetEnvironmentVariable(IntegrationTestModeVariable, _originalIntegrationTestMode);
+        Environment.SetEnvironmentVariable(DeploymentModeVariable, _originalDeploymentMode);
+
         if (_disposeApp is not null)
         {
             await _disposeApp();
@@ -88,6 +101,9 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
             _describeResourceState = null;
             _disposeApp = null;
         }
+
+        _originalIntegrationTestMode = null;
+        _originalDeploymentMode = null;
     }
 
     public HttpClient CreateApiClient() =>
