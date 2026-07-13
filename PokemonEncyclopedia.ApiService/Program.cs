@@ -16,6 +16,10 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var assembly = Assembly.GetExecutingAssembly();
+var deploymentMode = builder.Configuration["DEPLOYMENT_MODE"] ?? "local";
+var isIntegrationTestMode =
+    deploymentMode.Equals("test", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(builder.Configuration["INTEGRATION_TEST_MODE"], "true", StringComparison.OrdinalIgnoreCase);
 
 // Add Application Insights
 builder.Services.AddApplicationInsightsTelemetry();
@@ -87,64 +91,69 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddHostedService<PokemonCatalogWarmupHostedService>();
+if (!isIntegrationTestMode)
+    builder.Services.AddHostedService<PokemonCatalogWarmupHostedService>();
 builder.Services.AddHealthChecks()
     .AddCheck<PokemonCatalogWarmupHealthCheck>("pokemon_catalog_warmup");
-builder.Services.AddHangfireDashboardUI();
 
-var cosmosConnectionString =
-    builder.Configuration.GetConnectionString("hangfiredb") ?? builder.Configuration["HANGFIREDB_CONNECTIONSTRING"];
-var cosmosUri = builder.Configuration["HANGFIREDB_URI"];
-var cosmosAuthSecret = builder.Configuration["HANGFIREDB_ACCOUNTKEY"];
-var cosmosDatabaseName = builder.Configuration["HANGFIREDB_DATABASENAME"] ?? "hangfiredb";
-var disableServerCertificateValidation = false;
-const string hangfireCollectionName = "hangfire";
-
-if (!string.IsNullOrWhiteSpace(cosmosConnectionString))
+if (!isIntegrationTestMode)
 {
-    var csb = new DbConnectionStringBuilder { ConnectionString = cosmosConnectionString };
-    if (csb.TryGetValue("AccountEndpoint", out var endpointValue))
-        cosmosUri = endpointValue?.ToString();
-    if (csb.TryGetValue("AccountKey", out var keyValue))
-        cosmosAuthSecret = keyValue?.ToString();
-    if (csb.TryGetValue("DisableServerCertificateValidation", out var disableCertValue) &&
-        bool.TryParse(disableCertValue?.ToString(), out var disableCertValidation))
-        disableServerCertificateValidation = disableCertValidation;
-}
+    builder.Services.AddHangfireDashboardUI();
 
-if (string.IsNullOrWhiteSpace(cosmosUri) || string.IsNullOrWhiteSpace(cosmosAuthSecret))
-    throw new InvalidOperationException(
-        "Cosmos DB configuration for Hangfire is missing. Ensure AppHost references the 'hangfiredb' Cosmos resource.");
+    var cosmosConnectionString =
+        builder.Configuration.GetConnectionString("hangfiredb") ?? builder.Configuration["HANGFIREDB_CONNECTIONSTRING"];
+    var cosmosUri = builder.Configuration["HANGFIREDB_URI"];
+    var cosmosAuthSecret = builder.Configuration["HANGFIREDB_ACCOUNTKEY"];
+    var cosmosDatabaseName = builder.Configuration["HANGFIREDB_DATABASENAME"] ?? "hangfiredb";
+    var disableServerCertificateValidation = false;
+    const string hangfireCollectionName = "hangfire";
 
-if (!Uri.TryCreate(cosmosUri, UriKind.Absolute, out var cosmosEndpoint) ||
-    (cosmosEndpoint.Scheme != Uri.UriSchemeHttps && cosmosEndpoint.Scheme != Uri.UriSchemeHttp))
-    throw new InvalidOperationException(
-        $"Invalid Cosmos endpoint '{cosmosUri}'. Expected an http/https AccountEndpoint value.");
-
-var cosmosClientOptions = new CosmosClientOptions();
-if (builder.Environment.IsDevelopment() && IsLocalCosmosEmulatorEndpoint(cosmosEndpoint))
-{
-    cosmosClientOptions.ConnectionMode = ConnectionMode.Gateway;
-    cosmosClientOptions.LimitToEndpoint = true;
-}
-
-if (disableServerCertificateValidation ||
-    (builder.Environment.IsDevelopment() && IsLocalCosmosEmulatorEndpoint(cosmosEndpoint)))
-    cosmosClientOptions.HttpClientFactory = () =>
+    if (!string.IsNullOrWhiteSpace(cosmosConnectionString))
     {
-        var handler = new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        };
-        return new HttpClient(handler, true);
-    };
+        var csb = new DbConnectionStringBuilder { ConnectionString = cosmosConnectionString };
+        if (csb.TryGetValue("AccountEndpoint", out var endpointValue))
+            cosmosUri = endpointValue?.ToString();
+        if (csb.TryGetValue("AccountKey", out var keyValue))
+            cosmosAuthSecret = keyValue?.ToString();
+        if (csb.TryGetValue("DisableServerCertificateValidation", out var disableCertValue) &&
+            bool.TryParse(disableCertValue?.ToString(), out var disableCertValidation))
+            disableServerCertificateValidation = disableCertValidation;
+    }
 
-builder.Services.AddHangfire(config => config
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UseAzureCosmosDbStorage(cosmosEndpoint.AbsoluteUri, cosmosAuthSecret, cosmosDatabaseName, hangfireCollectionName,
-        cosmosClientOptions));
-builder.Services.AddHostedService<HangfireServerHostedService>();
+    if (string.IsNullOrWhiteSpace(cosmosUri) || string.IsNullOrWhiteSpace(cosmosAuthSecret))
+        throw new InvalidOperationException(
+            "Cosmos DB configuration for Hangfire is missing. Ensure AppHost references the 'hangfiredb' Cosmos resource.");
+
+    if (!Uri.TryCreate(cosmosUri, UriKind.Absolute, out var cosmosEndpoint) ||
+        (cosmosEndpoint.Scheme != Uri.UriSchemeHttps && cosmosEndpoint.Scheme != Uri.UriSchemeHttp))
+        throw new InvalidOperationException(
+            $"Invalid Cosmos endpoint '{cosmosUri}'. Expected an http/https AccountEndpoint value.");
+
+    var cosmosClientOptions = new CosmosClientOptions();
+    if (builder.Environment.IsDevelopment() && IsLocalCosmosEmulatorEndpoint(cosmosEndpoint))
+    {
+        cosmosClientOptions.ConnectionMode = ConnectionMode.Gateway;
+        cosmosClientOptions.LimitToEndpoint = true;
+    }
+
+    if (disableServerCertificateValidation ||
+        (builder.Environment.IsDevelopment() && IsLocalCosmosEmulatorEndpoint(cosmosEndpoint)))
+        cosmosClientOptions.HttpClientFactory = () =>
+        {
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            };
+            return new HttpClient(handler, true);
+        };
+
+    builder.Services.AddHangfire(config => config
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseAzureCosmosDbStorage(cosmosEndpoint.AbsoluteUri, cosmosAuthSecret, cosmosDatabaseName, hangfireCollectionName,
+            cosmosClientOptions));
+    builder.Services.AddHostedService<HangfireServerHostedService>();
+}
 
 var app = builder.Build();
 
@@ -196,13 +205,16 @@ app.Lifetime.ApplicationStarted.Register(() =>
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
-app.UseHangfireDashboardUI("/hangfire", new DashboardUIOptions
+if (!isIntegrationTestMode)
 {
-    DashboardTitle = "Pokémon Encyclopedia Jobs",
-    DefaultTheme = "auto",
-    EnableJobManagement = true,
-    Authorization = []
-});
+    app.UseHangfireDashboardUI("/hangfire", new DashboardUIOptions
+    {
+        DashboardTitle = "Pokémon Encyclopedia Jobs",
+        DefaultTheme = "auto",
+        EnableJobManagement = true,
+        Authorization = []
+    });
+}
 
 logger.LogInformation("Mapping controllers and default endpoints");
 app.MapControllers();

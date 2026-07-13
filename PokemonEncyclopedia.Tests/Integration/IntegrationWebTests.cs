@@ -1,119 +1,48 @@
-using Microsoft.Extensions.Logging;
-
 namespace PokemonEncyclopedia.Tests.Integration;
 
-[Collection(TestExecutionSettings.IntegrationCollectionName)]
+[Collection(TestExecutionSettings.AppHostIntegrationCollectionName)]
 [Trait("Category", "Integration")]
-public class IntegrationWebTests
+public class IntegrationWebTests(AspireAppHostFixture fixture)
 {
-    private static readonly TimeSpan DefaultTimeout = TestExecutionSettings.IntegrationTimeout;
-    private const string ApiResourceName = "apiservice";
+    private readonly AspireAppHostFixture _fixture = fixture;
 
     [Fact]
     public async Task GetWebResourceRootReturnsOkStatusCode()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureWebHealthyAsync(requestCts.Token);
 
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.AddLogging(logging =>
-        {
-            logging.AddConsole();
-        });
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
+        var response = await _fixture.CreateWebClient().GetAsync("/", requestCts.Token);
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act
-        var httpClient = app.CreateHttpClient("webfrontend");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("webfrontend", cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/", cancellationToken);
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task GetPokemonDetailPageReturnsOkStatusCode()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureWebHealthyAsync(requestCts.Token);
 
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
+        var response = await _fixture.CreateWebClient().GetAsync("/pokemon/pikachu", requestCts.Token);
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act
-        var httpClient = app.CreateHttpClient("webfrontend");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("webfrontend", cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/pokemon/pikachu", cancellationToken);
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task ApiServiceIsHealthy()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
-
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
-
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act & Assert
-        var resourceNotifications = app.ResourceNotifications;
-        await resourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureApiHealthyAsync(requestCts.Token);
     }
 
     [Fact]
     public async Task ApiServiceHealthCheckEndpointResponds()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureApiHealthyAsync(requestCts.Token);
 
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
+        var response = await _fixture.CreateApiClient().GetAsync("/health", requestCts.Token);
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act
-        var httpClient = app.CreateHttpClient(ApiResourceName);
-        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/health", cancellationToken);
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }

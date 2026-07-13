@@ -5,6 +5,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 // Determine deployment mode
 var deploymentMode = builder.Configuration["DEPLOYMENT_MODE"] ?? "local";
 var isAzureDeployment = deploymentMode.Equals("azure", StringComparison.OrdinalIgnoreCase);
+var isIntegrationTestMode =
+    deploymentMode.Equals("test", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(builder.Configuration["INTEGRATION_TEST_MODE"], "true", StringComparison.OrdinalIgnoreCase);
 
 // Configure Redis - use Azure or local
 var cache = isAzureDeployment
@@ -14,20 +17,13 @@ var cache = isAzureDeployment
             .WithDataVolume()
             .WithLifetime(ContainerLifetime.Persistent));
 
-var cosmos = builder.AddAzureCosmosDB("cosmos")
-    .RunAsEmulator(emulator => emulator
-        .WithDataVolume()
-        .WithLifetime(ContainerLifetime.Persistent));
-var hangfireDb = cosmos.AddCosmosDatabase("hangfiredb");
-
 var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
     .WithReference(cache)
     .WaitFor(cache)
-    .WithReference(hangfireDb)
-    .WaitFor(hangfireDb)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", isAzureDeployment ? "Production" : "Development")
+    .WithEnvironment("INTEGRATION_TEST_MODE", isIntegrationTestMode ? "true" : "false")
     .WithEnvironment("DEPLOYMENT_MODE", deploymentMode)
     .WithCommand(
         "open-swagger",
@@ -62,6 +58,19 @@ var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice"
                 ? ResourceCommandState.Disabled
                 : ResourceCommandState.Enabled
         });
+
+if (!isIntegrationTestMode)
+{
+    var cosmos = builder.AddAzureCosmosDB("cosmos")
+        .RunAsEmulator(emulator => emulator
+            .WithDataVolume()
+            .WithLifetime(ContainerLifetime.Persistent));
+    var hangfireDb = cosmos.AddCosmosDatabase("hangfiredb");
+
+    apiService = apiService
+        .WithReference(hangfireDb)
+        .WaitFor(hangfireDb);
+}
 
 builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
     .WithExternalHttpEndpoints()

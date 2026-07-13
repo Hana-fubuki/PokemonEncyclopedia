@@ -1,117 +1,52 @@
 namespace PokemonEncyclopedia.Tests.Integration;
 
-[Collection(TestExecutionSettings.IntegrationCollectionName)]
+[Collection(TestExecutionSettings.AppHostIntegrationCollectionName)]
 [Trait("Category", "Integration")]
-public class ApiEndpointsTests
+public class ApiEndpointsTests(AspireAppHostFixture fixture)
 {
-    private static readonly TimeSpan DefaultTimeout = TestExecutionSettings.IntegrationTimeout;
-    private const string ApiResourceName = "apiservice";
+    private readonly AspireAppHostFixture _fixture = fixture;
 
     [Fact]
     public async Task GetAllPokemonEndpoint_ShouldReturn()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureApiHealthyAsync(requestCts.Token);
 
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
+        var response = await _fixture.CreateApiClient().GetAsync("/api/PokeApi/details", requestCts.Token);
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act
-        var httpClient = app.CreateHttpClient(ApiResourceName);
-        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/api/PokeApi/details", cancellationToken);
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task GetPokemonByNameEndpoint_ShouldReturn()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureApiHealthyAsync(requestCts.Token);
 
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
+        var response = await _fixture.CreateApiClient().GetAsync("/api/PokeApi/pokemon/pikachu", requestCts.Token);
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act
-        var httpClient = app.CreateHttpClient(ApiResourceName);
-        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/api/PokeApi/pokemon/pikachu", cancellationToken);
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task GetAbilitiesEndpoint_ShouldReturn()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureApiHealthyAsync(requestCts.Token);
 
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
+        var response = await _fixture.CreateApiClient().GetAsync("/api/PokeApi/abilities", requestCts.Token);
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act
-        var httpClient = app.CreateHttpClient(ApiResourceName);
-        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/api/PokeApi/abilities", cancellationToken);
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
     public async Task GetLegendaryPokemonEndpoint_ShouldReturn()
     {
-        // Arrange
-        var cancellationToken = new CancellationTokenSource(DefaultTimeout).Token;
+        using var requestCts = new CancellationTokenSource(TestExecutionSettings.HttpRequestTimeout);
+        await _fixture.EnsureApiHealthyAsync(requestCts.Token);
 
-        var appHost =
-            await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
-                cancellationToken);
-        appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-        {
-            clientBuilder.AddStandardResilienceHandler();
-        });
+        var response = await _fixture.CreateApiClient().GetAsync("/api/PokeApi/legendary", requestCts.Token);
 
-        await using var app = await appHost.BuildAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-        await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
-
-        // Act
-        var httpClient = app.CreateHttpClient(ApiResourceName);
-        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
-            .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/api/PokeApi/legendary", cancellationToken);
-
-        // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }
