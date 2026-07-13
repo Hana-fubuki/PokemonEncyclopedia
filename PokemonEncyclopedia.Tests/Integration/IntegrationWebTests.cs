@@ -2,6 +2,7 @@ namespace PokemonEncyclopedia.Tests.Integration;
 
 [Collection(TestExecutionSettings.AppHostIntegrationCollectionName)]
 [Trait("Category", "Integration")]
+[Trait("Category", "RequiresAppHost")]
 public class IntegrationWebTests(AspireAppHostFixture fixture)
 {
     private readonly AspireAppHostFixture _fixture = fixture;
