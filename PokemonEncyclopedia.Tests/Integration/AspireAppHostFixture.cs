@@ -20,6 +20,7 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
         {
             var appHost =
                 await DistributedApplicationTestingBuilder.CreateAsync<Projects.PokemonEncyclopedia_AppHost>(
+                    ["--INTEGRATION_TEST_MODE=true"],
                     startupCts.Token);
             appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
             {
