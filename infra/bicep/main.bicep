@@ -36,6 +36,83 @@ var cosmosDbName = '${resourceNamePrefix}-cosmos'
 var appInsightsName = '${resourceNamePrefix}-ai'
 var logAnalyticsName = '${resourceNamePrefix}-logs'
 var containerRegistryName = replace('${resourceNamePrefix}acr', '-', '')
+var keyVaultName = replace('${resourceNamePrefix}-kv', '-', '')
+
+// Azure Container Registry
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: containerRegistryName
+  location: location
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: true
+    publicNetworkAccess: 'Enabled'
+  }
+  tags: {
+    environment: environment
+    application: 'pokemonencyclopedia'
+    tier: 'basic'
+  }
+}
+
+// Key Vault
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: keyVaultName
+  location: location
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    accessPolicies: []
+    enabledForDeployment: true
+    enabledForTemplateDeployment: true
+    enabledForDiskEncryption: false
+    enableRbacAuthorization: true
+  }
+  tags: {
+    environment: environment
+    application: 'pokemonencyclopedia'
+  }
+}
+
+// Key Vault Secret: Container Registry Password
+resource kvSecretRegistryPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'container-registry-password'
+  properties: {
+    value: containerRegistryPassword
+  }
+}
+
+// Key Vault Secret: Redis Connection String
+resource kvSecretRedisConnection 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'redis-connection-string'
+  properties: {
+    value: 'redisHost=${redisCache.properties.hostName},redisPort=${redisCache.properties.port},ssl=true,password=${redisCache.listKeys().primaryKey}'
+  }
+}
+
+// Key Vault Secret: Cosmos Connection String
+resource kvSecretCosmosConnection 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'cosmos-connection-string'
+  properties: {
+    value: cosmosDb.listConnectionStrings().connectionStrings[0].connectionString
+  }
+}
+
+// Key Vault Secret: App Insights Key
+resource kvSecretAppInsightsKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'app-insights-instrumentation-key'
+  properties: {
+    value: appInsights.properties.InstrumentationKey
+  }
+}
 
 // Log Analytics Workspace for monitoring (Free tier: 5GB/month)
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -137,6 +214,110 @@ resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts@2023-11-15' = {
     environment: environment
     application: 'pokemonencyclopedia'
     tier: 'free'
+  }
+}
+
+// Cosmos DB Database
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-11-15' = {
+  parent: cosmosDb
+  name: 'pokemondb'
+  properties: {
+    resource: {
+      id: 'pokemondb'
+    }
+  }
+}
+
+// Cosmos DB Container: Pokemon Cache
+resource containerPokemonCache 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
+  parent: cosmosDatabase
+  name: 'pokemon-cache'
+  properties: {
+    resource: {
+      id: 'pokemon-cache'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+      defaultTtl: 86400
+    }
+  }
+}
+
+// Cosmos DB Container: Species Cache
+resource containerSpeciesCache 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
+  parent: cosmosDatabase
+  name: 'species-cache'
+  properties: {
+    resource: {
+      id: 'species-cache'
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+      defaultTtl: 86400
+    }
+  }
+}
+
+// Cosmos DB Container: Audit Logs
+resource containerAuditLogs 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
+  parent: cosmosDatabase
+  name: 'audit-logs'
+  properties: {
+    resource: {
+      id: 'audit-logs'
+      partitionKey: {
+        paths: [
+          '/timestamp'
+        ]
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+      defaultTtl: 2592000
+    }
   }
 }
 
@@ -475,3 +656,22 @@ output logAnalyticsWorkspaceId string = logAnalytics.id
 
 @description('Log Analytics Workspace Key')
 output logAnalyticsWorkspaceKey string = logAnalytics.listKeys().primarySharedKey
+
+@description('Container Registry login server')
+output containerRegistryLoginServer string = containerRegistry.properties.loginServer
+
+@description('Container Registry name')
+output containerRegistryName string = containerRegistry.name
+
+@description('Key Vault URI')
+output keyVaultUri string = keyVault.properties.vaultUri
+
+@description('Cosmos DB Database name')
+output cosmosDatabaseName string = 'pokemondb'
+
+@description('Cosmos DB Containers')
+output cosmosContainers array = [
+  'pokemon-cache'
+  'species-cache'
+  'audit-logs'
+]

@@ -151,6 +151,8 @@ locals {
       environment = var.environment
     }
   )
+  acr_name      = replace("${local.resource_name_prefix}acr", "-", "")
+  keyvault_name = replace("${local.resource_name_prefix}-kv", "-", "")
 }
 
 data "azurerm_client_config" "current" {}
@@ -181,6 +183,59 @@ resource "azurerm_application_insights" "ai" {
   retention_in_days   = 30
 
   tags = local.tags
+}
+
+# Azure Container Registry (Basic tier)
+resource "azurerm_container_registry" "acr" {
+  name                = local.acr_name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "Basic"
+  admin_enabled       = true
+
+  tags = local.tags
+}
+
+# Azure Key Vault
+resource "azurerm_key_vault" "kv" {
+  name                        = local.keyvault_name
+  location                    = azurerm_resource_group.rg.location
+  resource_group_name         = azurerm_resource_group.rg.name
+  enabled_for_deployment      = true
+  enabled_for_template_deployment = true
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  sku_name                    = "standard"
+  purge_protection_enabled    = false
+
+  tags = local.tags
+}
+
+# Key Vault Secret: Container Registry Password
+resource "azurerm_key_vault_secret" "registry_password" {
+  name         = "container-registry-password"
+  value        = var.container_registry_password
+  key_vault_id = azurerm_key_vault.kv.id
+}
+
+# Key Vault Secret: Redis Connection String
+resource "azurerm_key_vault_secret" "redis_connection" {
+  name         = "redis-connection-string"
+  value        = "redisHost=${azurerm_redis_cache.redis.hostname},redisPort=${azurerm_redis_cache.redis.port},ssl=true,password=${azurerm_redis_cache.redis.primary_access_key}"
+  key_vault_id = azurerm_key_vault.kv.id
+}
+
+# Key Vault Secret: Cosmos Connection String
+resource "azurerm_key_vault_secret" "cosmos_connection" {
+  name         = "cosmos-connection-string"
+  value        = azurerm_cosmosdb_account.cosmos.connection_strings[0]
+  key_vault_id = azurerm_key_vault.kv.id
+}
+
+# Key Vault Secret: App Insights Key
+resource "azurerm_key_vault_secret" "app_insights_key" {
+  name         = "app-insights-instrumentation-key"
+  value        = azurerm_application_insights.ai.instrumentation_key
+  key_vault_id = azurerm_key_vault.kv.id
 }
 
 # Redis Cache (Free tier: 250MB)
@@ -231,6 +286,79 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   }
 
   tags = local.tags
+}
+
+# Cosmos DB SQL Database
+resource "azurerm_cosmosdb_sql_database" "db" {
+  name                = "pokemondb"
+  account_name        = azurerm_cosmosdb_account.cosmos.name
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+# Cosmos DB Container: Pokemon Cache
+resource "azurerm_cosmosdb_sql_container" "pokemon_cache" {
+  name                = "pokemon-cache"
+  database_name       = azurerm_cosmosdb_sql_database.db.name
+  account_name        = azurerm_cosmosdb_account.cosmos.name
+  resource_group_name = azurerm_resource_group.rg.name
+  partition_key_path  = "/id"
+  default_ttl         = 86400
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/*"
+    }
+
+    excluded_path {
+      path = "/_etag/?"
+    }
+  }
+}
+
+# Cosmos DB Container: Species Cache
+resource "azurerm_cosmosdb_sql_container" "species_cache" {
+  name                = "species-cache"
+  database_name       = azurerm_cosmosdb_sql_database.db.name
+  account_name        = azurerm_cosmosdb_account.cosmos.name
+  resource_group_name = azurerm_resource_group.rg.name
+  partition_key_path  = "/id"
+  default_ttl         = 86400
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/*"
+    }
+
+    excluded_path {
+      path = "/_etag/?"
+    }
+  }
+}
+
+# Cosmos DB Container: Audit Logs
+resource "azurerm_cosmosdb_sql_container" "audit_logs" {
+  name                = "audit-logs"
+  database_name       = azurerm_cosmosdb_sql_database.db.name
+  account_name        = azurerm_cosmosdb_account.cosmos.name
+  resource_group_name = azurerm_resource_group.rg.name
+  partition_key_path  = "/timestamp"
+  default_ttl         = 2592000
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/*"
+    }
+
+    excluded_path {
+      path = "/_etag/?"
+    }
+  }
 }
 
 # Cosmos DB Diagnostic Settings
@@ -555,4 +683,38 @@ output "container_app_environment_id" {
 output "log_analytics_workspace_id" {
   description = "Log Analytics Workspace ID"
   value       = azurerm_log_analytics_workspace.logs.workspace_id
+}
+
+output "container_registry_login_server" {
+  description = "Container Registry login server"
+  value       = azurerm_container_registry.acr.login_server
+}
+
+output "container_registry_name" {
+  description = "Container Registry name"
+  value       = azurerm_container_registry.acr.name
+}
+
+output "key_vault_id" {
+  description = "Key Vault ID"
+  value       = azurerm_key_vault.kv.id
+}
+
+output "key_vault_uri" {
+  description = "Key Vault URI"
+  value       = azurerm_key_vault.kv.vault_uri
+}
+
+output "cosmos_database_name" {
+  description = "Cosmos DB Database name"
+  value       = azurerm_cosmosdb_sql_database.db.name
+}
+
+output "cosmos_containers" {
+  description = "Cosmos DB Containers created"
+  value = [
+    azurerm_cosmosdb_sql_container.pokemon_cache.name,
+    azurerm_cosmosdb_sql_container.species_cache.name,
+    azurerm_cosmosdb_sql_container.audit_logs.name
+  ]
 }
