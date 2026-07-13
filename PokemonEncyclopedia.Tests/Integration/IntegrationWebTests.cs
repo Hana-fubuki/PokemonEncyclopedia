@@ -5,6 +5,7 @@ namespace PokemonEncyclopedia.Tests.Integration;
 public class IntegrationWebTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+    private const string ApiResourceName = "apiservice";
 
     [Fact]
     public async Task GetWebResourceRootReturnsOkStatusCode()
@@ -83,7 +84,7 @@ public class IntegrationWebTests
 
         // Act & Assert
         var resourceNotifications = app.ResourceNotifications;
-        await resourceNotifications.WaitForResourceHealthyAsync("api", cancellationToken)
+        await resourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
             .WaitAsync(DefaultTimeout, cancellationToken);
     }
 
@@ -105,8 +106,8 @@ public class IntegrationWebTests
         await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
 
         // Act
-        var httpClient = app.CreateHttpClient("api");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("api", cancellationToken)
+        var httpClient = app.CreateHttpClient(ApiResourceName);
+        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
             .WaitAsync(DefaultTimeout, cancellationToken);
         var response = await httpClient.GetAsync("/health", cancellationToken);
 

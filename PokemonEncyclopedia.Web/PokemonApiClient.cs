@@ -147,7 +147,10 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             return cachedSpecies;
 
         var sw = Stopwatch.StartNew();
-        var species = await httpClient.GetFromJsonAsync<PokemonSpecies>($"/api/PokeApi/species/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+        var speciesEndpoint = string.Equals(httpClient.BaseAddress?.Host, "pokeapi.co", StringComparison.OrdinalIgnoreCase)
+            ? $"https://pokeapi.co/api/v2/pokemon-species/{Uri.EscapeDataString(normalizedName)}/"
+            : $"/api/PokeApi/species/{Uri.EscapeDataString(normalizedName)}";
+        var species = await httpClient.GetFromJsonAsync<PokemonSpecies>(speciesEndpoint, cancellationToken)
             .ConfigureAwait(false);
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -236,6 +239,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<IReadOnlyList<Pokemon>> GetPokemonVarietiesAsync(string speciesName, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (string.IsNullOrWhiteSpace(speciesName))
         {
             return Array.Empty<Pokemon>();
@@ -286,6 +291,10 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
                     varieties.AddRange(varietyResults.Where(v => v is not null)!);
                 }
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

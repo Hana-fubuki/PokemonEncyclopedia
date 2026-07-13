@@ -3,6 +3,7 @@ namespace PokemonEncyclopedia.Tests.Integration;
 public class ApiEndpointsTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+    private const string ApiResourceName = "apiservice";
 
     [Fact]
     public async Task GetAllPokemonEndpoint_ShouldReturn()
@@ -22,10 +23,10 @@ public class ApiEndpointsTests
         await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
 
         // Act
-        var httpClient = app.CreateHttpClient("api");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("api", cancellationToken)
+        var httpClient = app.CreateHttpClient(ApiResourceName);
+        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
             .WaitAsync(DefaultTimeout, cancellationToken);
-        var response = await httpClient.GetAsync("/api/PokeApi/all-pokemon", cancellationToken);
+        var response = await httpClient.GetAsync("/api/PokeApi/details", cancellationToken);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -49,8 +50,8 @@ public class ApiEndpointsTests
         await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
 
         // Act
-        var httpClient = app.CreateHttpClient("api");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("api", cancellationToken)
+        var httpClient = app.CreateHttpClient(ApiResourceName);
+        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
             .WaitAsync(DefaultTimeout, cancellationToken);
         var response = await httpClient.GetAsync("/api/PokeApi/pokemon/pikachu", cancellationToken);
 
@@ -76,8 +77,8 @@ public class ApiEndpointsTests
         await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
 
         // Act
-        var httpClient = app.CreateHttpClient("api");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("api", cancellationToken)
+        var httpClient = app.CreateHttpClient(ApiResourceName);
+        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
             .WaitAsync(DefaultTimeout, cancellationToken);
         var response = await httpClient.GetAsync("/api/PokeApi/abilities", cancellationToken);
 
@@ -103,8 +104,8 @@ public class ApiEndpointsTests
         await app.StartAsync(cancellationToken).WaitAsync(DefaultTimeout, cancellationToken);
 
         // Act
-        var httpClient = app.CreateHttpClient("api");
-        await app.ResourceNotifications.WaitForResourceHealthyAsync("api", cancellationToken)
+        var httpClient = app.CreateHttpClient(ApiResourceName);
+        await app.ResourceNotifications.WaitForResourceHealthyAsync(ApiResourceName, cancellationToken)
             .WaitAsync(DefaultTimeout, cancellationToken);
         var response = await httpClient.GetAsync("/api/PokeApi/legendary", cancellationToken);
 

@@ -1,4 +1,4 @@
-name: Deploy to Azure (Bicep) - DISABLED
+name: Deploy to Azure (Bicep)
 
 on:
   # Bicep deployment is currently disabled
@@ -39,7 +39,7 @@ jobs:
       web_tag: ${{ steps.meta-web.outputs.tags }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -102,7 +102,7 @@ jobs:
       url: ${{ steps.deploy.outputs.web_service_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Azure Login
         uses: azure/login@v2

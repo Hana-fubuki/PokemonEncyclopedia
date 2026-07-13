@@ -1,7 +1,5 @@
-using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using PokemonEncyclopedia.Web;
-using Xunit;
 
 namespace PokemonEncyclopedia.Tests.Integration;
 
@@ -119,10 +117,7 @@ public class PokemonVarietiesIntegrationTests
 
         // Assert
         varieties.Should().NotBeEmpty();
-        varieties.Should().AllSatisfy(v =>
-        {
-            v.Sprites.Should().NotBeNull("Each variety should have sprites");
-        });
+        varieties.Should().AllSatisfy(v => { v.Sprites.Should().NotBeNull("Each variety should have sprites"); });
     }
 
     [Fact]
@@ -185,7 +180,8 @@ public class PokemonVarietiesIntegrationTests
             BaseAddress = new Uri("https://pokeapi.co/api/v2/")
         };
         var client = new PokemonApiClient(httpClient, cache);
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
 
         // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
