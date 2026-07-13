@@ -114,6 +114,87 @@ resource kvSecretAppInsightsKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' =
   }
 }
 
+// ============================================
+// RBAC Role Assignments for Managed Identities
+// ============================================
+
+// API Service: Cosmos DB Data Contributor
+resource apiCosmosRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: cosmosDb
+  name: guid(apiService.id, cosmosDb.id, 'Cosmos DB Built-in Data Contributor')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '00db8525-8499-4ad5-b35b-9f677a1d1490')
+    principalId: apiService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// API Service: Key Vault Secrets User
+resource apiKeyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: keyVault
+  name: guid(apiService.id, keyVault.id, 'Key Vault Secrets User')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalId: apiService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// API Service: Application Insights Component Contributor
+resource apiAppInsightsRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: appInsights
+  name: guid(apiService.id, appInsights.id, 'Application Insights Component Contributor')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ae349356-3566-4f1d-b27e-8ace3bac7694')
+    principalId: apiService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// API Service: Monitoring Metrics Publisher
+resource apiMetricsRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: subscription()
+  name: guid(apiService.id, 'Monitoring Metrics Publisher')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')
+    principalId: apiService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Web Service: Key Vault Secrets User
+resource webKeyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: keyVault
+  name: guid(webService.id, keyVault.id, 'Key Vault Secrets User')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalId: webService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Web Service: Application Insights Component Contributor
+resource webAppInsightsRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: appInsights
+  name: guid(webService.id, appInsights.id, 'Application Insights Component Contributor')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ae349356-3566-4f1d-b27e-8ace3bac7694')
+    principalId: webService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Web Service: Monitoring Metrics Publisher
+resource webMetricsRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: subscription()
+  name: guid(webService.id, 'Monitoring Metrics Publisher')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')
+    principalId: webService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Log Analytics Workspace for monitoring (Free tier: 5GB/month)
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logAnalyticsName

@@ -157,6 +157,23 @@ locals {
 
 data "azurerm_client_config" "current" {}
 
+# Lookup built-in RBAC roles
+data "azurerm_builtin_role_definition" "cosmos_data_contributor" {
+  name = "Cosmos DB Built-in Data Contributor"
+}
+
+data "azurerm_builtin_role_definition" "keyvault_secrets_user" {
+  name = "Key Vault Secrets User"
+}
+
+data "azurerm_builtin_role_definition" "app_insights_contributor" {
+  name = "Application Insights Component Contributor"
+}
+
+data "azurerm_builtin_role_definition" "monitoring_metrics_publisher" {
+  name = "Monitoring Metrics Publisher"
+}
+
 resource "azurerm_resource_group" "rg" {
   name     = "${local.resource_name_prefix}-rg"
   location = var.location
@@ -630,6 +647,59 @@ resource "azurerm_container_app" "web" {
   tags = merge(local.tags, { service = "web" })
 
   depends_on = [azurerm_container_app.api]
+}
+
+# ============================================
+# RBAC Role Assignments for Managed Identities
+# ============================================
+
+# API Service: Cosmos DB Data Contributor
+resource "azurerm_role_assignment" "api_cosmos" {
+  scope              = azurerm_cosmosdb_account.cosmos.id
+  role_definition_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${data.azurerm_builtin_role_definition.cosmos_data_contributor.id}"
+  principal_id       = azurerm_container_app.api.identity[0].principal_id
+}
+
+# API Service: Key Vault Secrets User
+resource "azurerm_role_assignment" "api_keyvault" {
+  scope              = azurerm_key_vault.kv.id
+  role_definition_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${data.azurerm_builtin_role_definition.keyvault_secrets_user.id}"
+  principal_id       = azurerm_container_app.api.identity[0].principal_id
+}
+
+# API Service: Application Insights Component Contributor
+resource "azurerm_role_assignment" "api_appinsights" {
+  scope              = azurerm_application_insights.ai.id
+  role_definition_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${data.azurerm_builtin_role_definition.app_insights_contributor.id}"
+  principal_id       = azurerm_container_app.api.identity[0].principal_id
+}
+
+# API Service: Monitoring Metrics Publisher (subscription-level)
+resource "azurerm_role_assignment" "api_metrics" {
+  scope              = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${data.azurerm_builtin_role_definition.monitoring_metrics_publisher.id}"
+  principal_id       = azurerm_container_app.api.identity[0].principal_id
+}
+
+# Web Service: Key Vault Secrets User
+resource "azurerm_role_assignment" "web_keyvault" {
+  scope              = azurerm_key_vault.kv.id
+  role_definition_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${data.azurerm_builtin_role_definition.keyvault_secrets_user.id}"
+  principal_id       = azurerm_container_app.web.identity[0].principal_id
+}
+
+# Web Service: Application Insights Component Contributor
+resource "azurerm_role_assignment" "web_appinsights" {
+  scope              = azurerm_application_insights.ai.id
+  role_definition_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${data.azurerm_builtin_role_definition.app_insights_contributor.id}"
+  principal_id       = azurerm_container_app.web.identity[0].principal_id
+}
+
+# Web Service: Monitoring Metrics Publisher (subscription-level)
+resource "azurerm_role_assignment" "web_metrics" {
+  scope              = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${data.azurerm_builtin_role_definition.monitoring_metrics_publisher.id}"
+  principal_id       = azurerm_container_app.web.identity[0].principal_id
 }
 
 output "web_service_url" {
