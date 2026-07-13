@@ -93,6 +93,28 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         return fromList;
     }
 
+    public async Task<Pokemon?> GetPokemonByIdAsync(int pokemonId, CancellationToken cancellationToken = default)
+    {
+        if (pokemonId <= 0) return null;
+
+        var cacheKey = $"pokemon:id:{pokemonId}";
+        if (cache.TryGetValue(cacheKey, out Pokemon? cachedPokemon))
+            return cachedPokemon;
+
+        var sw = Stopwatch.StartNew();
+        // Call PokeAPI directly for Pokemon by ID (varieties need to be fetched by ID)
+        var pokemon = await httpClient.GetFromJsonAsync<Pokemon>($"https://pokeapi.co/api/v2/pokemon/{pokemonId}/", cancellationToken)
+            .ConfigureAwait(false);
+        sw.Stop();
+        Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("client.operation", "pokemon-by-id"),
+            new KeyValuePair<string, object?>("pokemon.id", pokemonId));
+        if (pokemon is not null)
+            cache.Set(cacheKey, pokemon, CacheDuration);
+
+        return pokemon;
+    }
+
     public async Task<Move?> GetMoveAsync(string name, CancellationToken cancellationToken = default)
     {
         var normalizedName = name.Trim().ToLowerInvariant();
@@ -214,31 +236,24 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<IReadOnlyList<Pokemon>> GetPokemonVarietiesAsync(string speciesName, CancellationToken cancellationToken = default)
     {
-        Debug.WriteLine($"[VARIETIES] GetPokemonVarietiesAsync called with speciesName={speciesName}");
-        
         if (string.IsNullOrWhiteSpace(speciesName))
         {
-            Debug.WriteLine($"[VARIETIES] Species name is null/whitespace, returning empty");
             return Array.Empty<Pokemon>();
         }
         
         var normalizedName = speciesName.Trim().ToLowerInvariant();
-        Debug.WriteLine($"[VARIETIES] Normalized name: {normalizedName}");
         
         if (string.IsNullOrWhiteSpace(normalizedName))
         {
-            Debug.WriteLine($"[VARIETIES] Normalized name is empty, returning empty");
             return Array.Empty<Pokemon>();
         }
 
         var cacheKey = $"varieties:{normalizedName}";
         if (cache.TryGetValue(cacheKey, out IReadOnlyList<Pokemon>? cachedVarieties) && cachedVarieties is not null)
         {
-            Debug.WriteLine($"[VARIETIES] Cache hit for {normalizedName}: {cachedVarieties.Count} varieties");
             return cachedVarieties;
         }
 
-        Debug.WriteLine($"[VARIETIES] Cache miss for {normalizedName}, fetching from API");
         var sw = Stopwatch.StartNew();
         var varieties = new List<Pokemon>();
         
@@ -246,7 +261,6 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         {
             // Get species data (should already be cached from GetAllPokemonAsync pre-cache)
             var species = await GetSpeciesAsync(normalizedName, cancellationToken).ConfigureAwait(false);
-            Debug.WriteLine($"[VARIETIES] Species data for {normalizedName}: {species?.Varieties?.Count ?? 0} varieties in API response");
             
             if (species?.Varieties is not null && species.Varieties.Count > 0)
             {
@@ -255,24 +269,22 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
                 
                 foreach (var variety in species.Varieties)
                 {
-                    if (variety.Pokemon?.Name is not null)
+                    if (variety.Pokemon?.Url is not null)
                     {
-                        Debug.WriteLine($"[VARIETIES] Fetching variety: {variety.Pokemon.Name}");
-                        varietyFetchTasks.Add(GetPokemonAsync(variety.Pokemon.Name, cancellationToken));
+                        // Extract Pokemon ID from URL (e.g., "https://pokeapi.co/api/v2/pokemon/10033/" -> "10033")
+                        var urlParts = variety.Pokemon.Url.TrimEnd('/').Split('/');
+                        if (urlParts.Length > 0 && int.TryParse(urlParts[^1], out var pokemonId))
+                        {
+                            varietyFetchTasks.Add(GetPokemonByIdAsync(pokemonId, cancellationToken));
+                        }
                     }
                 }
 
                 if (varietyFetchTasks.Count > 0)
                 {
                     var varietyResults = await Task.WhenAll(varietyFetchTasks).ConfigureAwait(false);
-                    var successCount = varietyResults.Count(v => v is not null);
                     varieties.AddRange(varietyResults.Where(v => v is not null)!);
-                    Debug.WriteLine($"[VARIETIES] Fetched {successCount}/{varietyFetchTasks.Count} varieties for {normalizedName}");
                 }
-            }
-            else
-            {
-                Debug.WriteLine($"[VARIETIES] No varieties found in species data for {normalizedName}");
             }
         }
         catch (Exception ex)

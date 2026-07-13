@@ -20,7 +20,6 @@
             <div class="detail-title">
                 <span class="dex-number">#@_pokemon.Id</span>
                 <h1>@_pokemon.Name</h1>
-                <p>@string.Join(" / ", _pokemon.Types.Select(t => t.Type.Name))</p>
             </div>
         </div>
 
@@ -40,7 +39,10 @@
 
                 <table>
                     <tr><th>National №</th><td>@_pokemon.Id</td></tr>
-                    <tr><th>Type</th><td>@string.Join(", ", _pokemon.Types.Select(t => t.Type.Name))</td></tr>
+                    <tr><th>Type</th><td><div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">@foreach (var type in _pokemon.Types)
+                    {
+                        <span class="type-pill type-@type.Type.Name">@type.Type.Name</span>
+                    }</div></td></tr>
                     <tr><th>Abilities</th><td>@string.Join(", ", _pokemon.Abilities.Select(a => a.Ability.Name))</td></tr>
                     <tr><th>Height</th><td>@_pokemon.Height</td></tr>
                     <tr><th>Weight</th><td>@_pokemon.Weight</td></tr>
@@ -170,9 +172,6 @@
 
                 <div class="section-card">
                     <h2>Varieties</h2>
-                    <div style="font-size: 0.8em; color: #999; margin-bottom: 1em;">
-                        DEBUG: Varieties fetched=@_varieties.Count | Species varieties=@(_species?.Varieties?.Count ?? 0) | Species name=@_species?.Name
-                    </div>
                     @if (_varieties.Count == 0)
                     {
                         <p class="muted">No varieties available.</p>
@@ -199,7 +198,7 @@
                                         <div class="variety-types">
                                             @foreach (var type in variety.Types)
                                             {
-                                                <span class="type-badge type-@type.Type.Name">@type.Type.Name</span>
+                                                <span class="type-pill type-@type.Type.Name">@type.Type.Name</span>
                                             }
                                         </div>
                                     </div>
@@ -342,20 +341,16 @@
 
     private async Task LoadPokemonDetailAsync(string name, int loadVersion, CancellationToken cancellationToken)
     {
-        System.Diagnostics.Debug.WriteLine($"[LOAD] LoadPokemonDetailAsync started for {name}, version={loadVersion}");
         try
         {
             var pokemon = await PokemonApi.GetPokemonAsync(name, cancellationToken).ConfigureAwait(false);
             if (pokemon is null)
             {
-                System.Diagnostics.Debug.WriteLine($"[LOAD] Pokemon is null");
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Loading Pokemon: {name}");
             _pokemon = pokemon;
             _spriteUrl = GetSpriteUrl(pokemon);
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Pokemon species name: {pokemon.Species?.Name}");
             
             // Load the first ability by default
             if (pokemon.Abilities.Count > 0)
@@ -366,23 +361,18 @@
             await InvokeAsync(StateHasChanged);
 
             // Start all data fetches in parallel
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Starting parallel fetches for all data");
             var allPokemonTask = PokemonApi.GetAllPokemonAsync(cancellationToken);
             var speciesTask = PokemonApi.GetSpeciesAsync(pokemon.Species.Name, cancellationToken);
             var movesTask = BuildMoveSummariesAsync(pokemon, cancellationToken);
             var varietiesTask = PokemonApi.GetPokemonVarietiesAsync(pokemon.Species.Name, cancellationToken);
-
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Started varieties fetch for species: {pokemon.Species.Name}");
 
             // Fire-and-forget: update sprite map in background
             _ = UpdateSpriteMapAsync(allPokemonTask, loadVersion, cancellationToken);
 
             // Wait for species to load first (needed for evolution chain ID)
             _species = await speciesTask.ConfigureAwait(false);
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Species loaded, varieties count in species: {_species?.Varieties?.Count ?? 0}");
             if (!IsCurrentLoad(loadVersion, cancellationToken))
             {
-                System.Diagnostics.Debug.WriteLine($"[LOAD] Load version mismatch, cancelling");
                 return;
             }
 
@@ -393,29 +383,24 @@
                 : PokemonApi.GetEvolutionChainAsync(chainId.Value, cancellationToken);
 
             // Wait for both evolution and moves in parallel
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Waiting for evolution, moves, and varieties tasks");
             await Task.WhenAll(evolutionTask, movesTask, varietiesTask).ConfigureAwait(false);
 
             if (!IsCurrentLoad(loadVersion, cancellationToken))
             {
-                System.Diagnostics.Debug.WriteLine($"[LOAD] Load version mismatch after WhenAll, cancelling");
                 return;
             }
 
             _evolutionChain = await evolutionTask.ConfigureAwait(false);
             _moves = await movesTask.ConfigureAwait(false);
             _varieties = await varietiesTask.ConfigureAwait(false);
-            System.Diagnostics.Debug.WriteLine($"[LOAD] All data loaded: Varieties={_varieties.Count} for {name}");
             await InvokeAsync(StateHasChanged);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Load cancelled");
             // Load was cancelled, this is expected when navigating away
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[LOAD] Error loading Pokemon detail for {name}: {ex.Message}\n{ex.StackTrace}");
             // Silently fail - let the UI show what was loaded before the error
         }
     }
@@ -877,33 +862,31 @@
     .type-pill {
         display: inline-flex;
         align-items: center;
-        padding: 0.2rem 0.55rem;
+        padding: 0.4rem 0.75rem;
         border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 700;
+        font-size: 0.85rem;
+        font-weight: 600;
         text-transform: capitalize;
-        color: #1f2937;
-        background: #e5e7eb;
     }
 
-    .type-fire { background: #fed7aa; }
-    .type-water { background: #bfdbfe; }
-    .type-grass { background: #bbf7d0; }
-    .type-electric { background: #fef08a; }
-    .type-ice { background: #cffafe; }
-    .type-fighting { background: #fecaca; }
-    .type-poison { background: #e9d5ff; }
-    .type-ground { background: #f5d0a9; }
-    .type-flying { background: #ddd6fe; }
-    .type-psychic { background: #fbcfe8; }
-    .type-bug { background: #d9f99d; }
-    .type-rock { background: #e7e5e4; }
-    .type-ghost { background: #ddd6fe; }
-    .type-dragon { background: #c7d2fe; }
-    .type-dark { background: #d1d5db; }
-    .type-steel { background: #e5e7eb; }
-    .type-fairy { background: #fce7f3; }
-    .type-normal { background: #f3f4f6; }
+    .type-normal { background: #f3f4f6; color: #1f2937; }
+    .type-fire { background: #fed7aa; color: #7c2d12; }
+    .type-water { background: #bfdbfe; color: #0c4a6e; }
+    .type-grass { background: #bbf7d0; color: #064e3b; }
+    .type-electric { background: #fef08a; color: #78350f; }
+    .type-ice { background: #cffafe; color: #164e63; }
+    .type-fighting { background: #fecaca; color: #7f1d1d; }
+    .type-poison { background: #e9d5ff; color: #581c87; }
+    .type-ground { background: #f5d0a9; color: #7c2d12; }
+    .type-flying { background: #ddd6fe; color: #3730a3; }
+    .type-psychic { background: #fbcfe8; color: #831843; }
+    .type-bug { background: #d9f99d; color: #3f6212; }
+    .type-rock { background: #e7e5e4; color: #292524; }
+    .type-ghost { background: #ddd6fe; color: #3730a3; }
+    .type-dragon { background: #c7d2fe; color: #1e1b4b; }
+    .type-dark { background: #d1d5db; color: #1f2937; }
+    .type-steel { background: #e5e7eb; color: #1f2937; }
+    .type-fairy { background: #fce7f3; color: #831843; }
 
     .move-chips {
         display: flex;
@@ -1210,19 +1193,7 @@
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 0.35rem;
-    }
-
-    .type-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.2rem 0.5rem;
-        border-radius: 999px;
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: capitalize;
-        color: #1f2937;
-        background: #e5e7eb;
+        gap: 0.4rem;
     }
 
     .muted {
