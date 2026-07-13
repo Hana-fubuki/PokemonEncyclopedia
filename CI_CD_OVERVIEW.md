@@ -41,7 +41,7 @@ When you push code to `main` or `develop` branches (or create a PR):
 Add this to your README to show CI status:
 
 ```markdown
-![.NET CI Pipeline](https://github.com/YOUR_ORG/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml/badge.svg)
+[![.NET CI Pipeline](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml/badge.svg?branch=main)](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml)
 ```
 
 ## Configuration
