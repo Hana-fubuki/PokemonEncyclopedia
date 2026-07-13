@@ -9,7 +9,7 @@ This repository uses **GitHub Actions** to automatically run tests, measure code
 When you push code to `main` or `develop` branches (or create a PR):
 
 1. ✅ **Build** - Compiles the project in Release mode
-2. ✅ **Tests** - Runs all 94+ tests automatically
+2. ✅ **Tests** - Runs all 113 tests automatically
 3. ✅ **Coverage** - Measures code coverage and generates reports
 4. ✅ **Quality** - Checks code formatting and style
 5. ✅ **Security** - Scans for known vulnerabilities
@@ -148,9 +148,9 @@ git commit -m "docs: Update README [skip ci]"
 ### Change .NET Version
 ```yaml
 - name: Setup .NET
-  uses: actions/setup-dotnet@v4
+  uses: actions/setup-dotnet@v5
   with:
-    dotnet-version: '9.0.x'
+    dotnet-version: '10.0.x'
 ```
 
 ## Artifacts

@@ -4,7 +4,7 @@
 
 Automatically runs on every commit to `main` or `develop`:
 - ✅ Builds your project
-- ✅ Runs all tests (94+)
+- ✅ Runs all tests (113)
 - ✅ Measures code coverage
 - ✅ Generates reports
 - ✅ Scans for vulnerabilities
@@ -70,9 +70,9 @@ on:
 
 **Change .NET version:**
 ```yaml
-- uses: actions/setup-dotnet@v4
+- uses: actions/setup-dotnet@v5
   with:
-    dotnet-version: '9.0.x'
+    dotnet-version: '10.0.x'
 ```
 
 ## 🔐 For Private Repos

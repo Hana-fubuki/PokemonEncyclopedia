@@ -2,41 +2,43 @@
 
 ## Overview
 
-Comprehensive test suite for the Pokemon Encyclopedia project with 95+ tests organized into logical folders for maximum coverage and maintainability.
+Comprehensive test suite for the Pokemon Encyclopedia project with 113 tests organized into logical folders for maximum coverage and maintainability.
 
 ## Folder Structure
 
-### `/Unit` - Unit Tests (55 tests)
+### `/Unit` - Unit Tests (75 tests)
 Pure unit tests with no external dependencies, testing individual components in isolation.
 
 **Tests:**
-- `PokemonFilterStateTests.cs` (18 tests) - Filter state management, generation/type toggling, clearing
+- `PokemonFilterStateTests.cs` (14 tests) - Filter state management, generation/type toggling, clearing
 - `PokemonSearchStateTests.cs` (7 tests) - Search text handling, change notifications
 - `PokemonApiClientTests.cs` (10 tests) - API client, name normalization, null handling
 - `QueryRecordTests.cs` (6 tests) - Query record equality, structure
 - `QueryHandlerTests.cs` (2 tests) - Service registration validation
 - `ValidationBehaviorTests.cs` (3 tests) - Validator registration and execution
 - `PokemonDtoTests.cs` (3 tests) - DTO record properties and equality
-- `EdgeCaseTests.cs` (6 tests) - Boundary conditions, whitespace, memory cache
+- `EdgeCaseTests.cs` (21 tests) - Boundary conditions and memory cache operations
+- `PokemonPreCachingTests.cs` (4 tests) - Pre-caching behavior
+- `PokemonVarietiesMethodTests.cs` (5 tests) - Reflection coverage for API method
 
-### `/Integration` - Integration Tests (13 tests)
+### `/Integration` - Integration Tests (21 tests)
 Tests that verify system behavior across multiple components or with running services.
 
 **Tests:**
-- `IntegrationWebTests.cs` (5 tests) - Web frontend routes, page loading, health checks
-- `WebTests.cs` (1 test) - Base web integration test
-- `ApiEndpointsTests.cs` (5 tests) - API endpoint validation (requires service)
+- `IntegrationWebTests.cs` (4 tests) - Web frontend routes, page loading, health checks
+- `ApiEndpointsTests.cs` (4 tests) - API endpoint validation (requires service)
 - `DependencyInjectionTests.cs` (2 tests) - DI configuration and validator registration
+- `PokemonVarietiesIntegrationTests.cs` (11 tests) - Species varieties, caching, cancellation
+- `AspireAppHostFixture.cs` - Shared integration test fixture
 
-### `/Validators` - Validator Tests (7 tests)
+### `/Validators` - Validator Tests (17 tests)
 Focused tests for FluentValidation validators.
 
 **Tests:**
-- `ValidatorTests.cs` (7 tests)
-  - `GetPokemonByNameValidator` (5 tests)
-  - `GetMoveByNameValidator` (3 tests)
-  - `GetEvolutionChainBySpeciesNameValidator` (3 tests)
-  - `GetPokemonByGenerationValidator` (5 tests)
+- `GetPokemonByNameValidatorTests` (5 tests)
+- `GetMoveByNameValidatorTests` (3 tests)
+- `GetEvolutionChainBySpeciesNameValidatorTests` (3 tests)
+- `GetPokemonByGenerationValidatorTests` (6 tests)
 
 ### `/Common` - Test Utilities
 Shared test helpers and utilities.
@@ -49,11 +51,11 @@ Shared test helpers and utilities.
 
 ## Test Statistics
 
-- **Total Tests**: 95+
-- **Unit Tests**: 55 ✅
-- **Integration Tests**: 13 (88 passing, 7 require services)
-- **Validator Tests**: 7 ✅
-- **Pass Rate**: 92.6% (88/95)
+- **Total Tests**: 113
+- **Unit Tests**: 75 ✅
+- **Integration Tests**: 21 ✅
+- **Validator Tests**: 17 ✅
+- **Pass Rate**: 100% (113/113)
 
 ## Running Tests
 
@@ -98,7 +100,9 @@ Examples:
 
 ## Coverage by Feature
 
-### State Management (25 tests)
+These are the main coverage areas; smaller utility and reflection tests are listed above.
+
+### State Management (21 tests)
 - ✅ PokemonFilterState initialization, updates, events
 - ✅ PokemonSearchState initialization, updates, events
 - ✅ Changed event handling
@@ -110,7 +114,7 @@ Examples:
 - ✅ Caching behavior
 - ✅ Method responses (Pokemon, Move, Species, Ability, EvolutionChain)
 
-### Validation (16 tests)
+### Validation (20 tests)
 - ✅ Name validation (empty, length)
 - ✅ Generation validation (1-9 range)
 - ✅ Error messages
@@ -120,13 +124,13 @@ Examples:
 - ✅ Query record structure
 - ✅ DTO property initialization
 
-### Integration (13 tests)
+### Integration (21 tests)
 - ✅ Web routes load correctly
 - ✅ API endpoints respond
 - ✅ Dependency injection works
 - ✅ Health checks pass
 
-### Edge Cases (6 tests)
+### Edge Cases (21 tests)
 - ✅ Whitespace handling
 - ✅ Null values
 - ✅ Out of range inputs
@@ -169,9 +173,16 @@ These tests are ready for CI/CD pipelines. Example GitHub Actions workflow:
 ```yaml
 - name: Run tests
   run: dotnet test --logger trx --collect:"XPlat Code Coverage"
-  
-- name: Upload coverage
-  uses: codecov/codecov-action@v3
+
+- name: Copy coverage file
+  run: find coverage -name 'coverage.cobertura.xml' -exec cp {} coverage/coverage.cobertura.xml \;
+
+- name: Code Coverage Summary
+  uses: irongut/CodeCoverageSummary@v1.3.0
+  with:
+    filename: coverage/coverage.cobertura.xml
+    badge: true
+    format: markdown
 ```
 
 ## Test Execution Tips
