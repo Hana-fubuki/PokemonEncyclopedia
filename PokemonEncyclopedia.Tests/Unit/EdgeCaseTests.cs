@@ -10,7 +10,7 @@ public class EdgeCaseTests
     [InlineData(" ")]
     [InlineData("  \t\n  ")]
     [InlineData(null)]
-    public void PokemonFilterState_SearchText_ShouldHandleWhitespaceVariations(string input)
+    public void PokemonFilterState_SearchText_ShouldHandleWhitespaceVariations(string? input)
     {
         // Arrange
         var state = new PokemonFilterState();

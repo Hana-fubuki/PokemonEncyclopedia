@@ -38,7 +38,7 @@ public class PokemonVarietiesMethodTests
 
         // Assert
         method.Should().NotBeNull();
-        method.ReturnType.Name.Should().Contain("Task", "Should return Task");
+        method!.ReturnType.Name.Should().Contain("Task", "Should return Task");
     }
 
     [Fact]
