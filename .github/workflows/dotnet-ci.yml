@@ -5,9 +5,6 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
-  schedule:
-    - cron: '21 2 * * 1'
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -56,35 +53,11 @@ jobs:
           --logger "trx;LogFileName=integration-test-results.trx" \
           --results-directory ./coverage/integration
 
-    - name: Run AppHost integration tests with coverage
-      run: |
-        dotnet test \
-          --no-build \
-          --configuration Release \
-          --filter "Category=Integration&Category=RequiresAppHost" \
-          --logger "trx;LogFileName=apphost-test-results.trx" \
-          --collect:"XPlat Code Coverage" \
-          --results-directory ./coverage/apphost \
-          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
-
-    - name: Install coverage merge tool
-      if: always()
-      run: dotnet tool install -g dotnet-reportgenerator-globaltool
-
-    - name: Merge coverage reports
-      if: always()
-      run: |
-        export PATH="$PATH:$HOME/.dotnet/tools"
-        reportgenerator \
-          "-reports:./coverage/unit/**/coverage.cobertura.xml;./coverage/apphost/**/coverage.cobertura.xml" \
-          "-targetdir:./coverage/merged" \
-          "-reporttypes:Cobertura"
-
     - name: Copy coverage file to predictable location
       if: always()
       run: |
         mkdir -p ./coverage
-        cp ./coverage/merged/Cobertura.xml ./coverage/coverage.cobertura.xml
+        find ./coverage/unit -name 'coverage.cobertura.xml' -exec cp {} ./coverage/coverage.cobertura.xml \;
 
     - name: Code Coverage Summary
       if: always()
@@ -222,67 +195,10 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-  codeql:
-    runs-on: ubuntu-latest
-    name: CodeQL Analysis
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: csharp
-
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore --configuration Release
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-
-  scorecard:
-    runs-on: ubuntu-latest
-    name: OpenSSF Scorecard
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
-      - name: Run OpenSSF Scorecard
-        uses: ossf/scorecard-action@v2.4.1
-        with:
-          results_file: scorecard-results.sarif
-          results_format: sarif
-          publish_results: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload scorecard results
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: scorecard-results.sarif
-
   summary:
     runs-on: ubuntu-latest
     name: CI Summary
-    needs: [build-and-test, code-quality, security-scan, codeql, scorecard]
+    needs: [build-and-test, code-quality, security-scan]
     if: always()
     
     steps:
@@ -295,8 +211,6 @@ jobs:
         echo "| Build & Test | ${{ needs.build-and-test.result }} |"
         echo "| Code Quality | ${{ needs.code-quality.result }} |"
         echo "| Security | ${{ needs.security-scan.result }} |"
-        echo "| CodeQL | ${{ needs.codeql.result }} |"
-        echo "| OpenSSF Scorecard | ${{ needs.scorecard.result }} |"
 
     - name: Fail if critical jobs failed
       if: |

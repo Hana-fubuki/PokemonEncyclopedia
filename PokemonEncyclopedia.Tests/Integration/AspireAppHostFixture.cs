@@ -7,22 +7,16 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
 {
     private const string ApiResourceName = "apiservice";
     private const string WebResourceName = "webfrontend";
-    private const string DeploymentModeEnvironmentName = "DEPLOYMENT_MODE";
-    private const string IntegrationTestModeEnvironmentName = "INTEGRATION_TEST_MODE";
 
     private Func<HttpClient>? _createApiClient;
     private Func<HttpClient>? _createWebClient;
     private Func<string, string>? _describeResourceState;
     private Func<Task>? _disposeApp;
-    private bool _environmentOverridden;
-    private string? _previousDeploymentMode;
-    private string? _previousIntegrationTestMode;
     private Func<string, CancellationToken, Task>? _waitForHealthy;
 
     public async Task InitializeAsync()
     {
         using var startupCts = new CancellationTokenSource(TestExecutionSettings.IntegrationStartupTimeout);
-        OverrideEnvironmentForTesting();
 
         try
         {
@@ -76,7 +70,6 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
         }
         catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or TaskCanceledException)
         {
-            RestoreEnvironment();
             throw new TimeoutException(
                 $"Aspire AppHost integration startup timed out after {TestExecutionSettings.IntegrationStartupTimeout}. {BuildStartupDiagnostics()}",
                 ex);
@@ -94,8 +87,6 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
             _describeResourceState = null;
             _disposeApp = null;
         }
-
-        RestoreEnvironment();
     }
 
     public HttpClient CreateApiClient() =>
@@ -143,31 +134,5 @@ public sealed class AspireAppHostFixture : IAsyncLifetime
         if (_describeResourceState is null)
             return $"{resourceName}: app-not-initialized";
         return _describeResourceState(resourceName);
-    }
-
-    private void OverrideEnvironmentForTesting()
-    {
-        if (_environmentOverridden)
-            return;
-
-        _previousDeploymentMode = Environment.GetEnvironmentVariable(DeploymentModeEnvironmentName);
-        _previousIntegrationTestMode = Environment.GetEnvironmentVariable(IntegrationTestModeEnvironmentName);
-
-        Environment.SetEnvironmentVariable(DeploymentModeEnvironmentName, "test");
-        Environment.SetEnvironmentVariable(IntegrationTestModeEnvironmentName, "true");
-        _environmentOverridden = true;
-    }
-
-    private void RestoreEnvironment()
-    {
-        if (!_environmentOverridden)
-            return;
-
-        Environment.SetEnvironmentVariable(DeploymentModeEnvironmentName, _previousDeploymentMode);
-        Environment.SetEnvironmentVariable(IntegrationTestModeEnvironmentName, _previousIntegrationTestMode);
-
-        _previousDeploymentMode = null;
-        _previousIntegrationTestMode = null;
-        _environmentOverridden = false;
     }
 }

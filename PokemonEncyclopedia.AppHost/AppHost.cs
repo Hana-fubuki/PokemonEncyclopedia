@@ -9,145 +9,77 @@ var isIntegrationTestMode =
     deploymentMode.Equals("test", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(builder.Configuration["INTEGRATION_TEST_MODE"], "true", StringComparison.OrdinalIgnoreCase);
 
-if (isAzureDeployment)
-{
-    var cache = builder.AddAzureManagedRedis("cache");
-
-    var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice")
-        .WithHttpHealthCheck("/health")
-        .WithExternalHttpEndpoints()
-        .WithReference(cache)
-        .WaitFor(cache)
-        .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Production")
-        .WithEnvironment("INTEGRATION_TEST_MODE", isIntegrationTestMode ? "true" : "false")
-        .WithEnvironment("DEPLOYMENT_MODE", deploymentMode)
-        .WithCommand(
-            "open-swagger",
-            "Open Swagger",
-            context => BuildOpenPathCommandResult(context, "/swagger"),
-            new CommandOptions
-            {
-                Description = "Shows the Swagger URL for the API service.",
-                UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
-                    ? ResourceCommandState.Disabled
-                    : ResourceCommandState.Enabled
-            })
-        .WithCommand(
-            "open-scalar",
-            "Open Scalar",
-            context => BuildOpenPathCommandResult(context, "/scalar"),
-            new CommandOptions
-            {
-                Description = "Shows the Scalar URL for the API service.",
-                UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
-                    ? ResourceCommandState.Disabled
-                    : ResourceCommandState.Enabled
-            })
-        .WithCommand(
-            "open-hangfire",
-            "Open Hangfire",
-            context => BuildOpenPathCommandResult(context, "/hangfire"),
-            new CommandOptions
-            {
-                Description = "Shows the Hangfire dashboard URL for the API service.",
-                UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
-                    ? ResourceCommandState.Disabled
-                    : ResourceCommandState.Enabled
-            });
-
-    if (!isIntegrationTestMode)
-    {
-        var cosmos = builder.AddAzureCosmosDB("cosmos")
-            .RunAsEmulator(emulator => emulator
-                .WithDataVolume()
-                .WithLifetime(ContainerLifetime.Persistent));
-        var hangfireDb = cosmos.AddCosmosDatabase("hangfiredb");
-
-        apiService = apiService
-            .WithReference(hangfireDb)
-            .WaitFor(hangfireDb);
-    }
-
-    builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
-        .WithExternalHttpEndpoints()
-        .WithHttpHealthCheck("/health")
-        .WithReference(cache)
-        .WaitFor(cache)
-        .WithReference(apiService)
-        .WaitFor(apiService)
-        .WithEnvironment("DEPLOYMENT_MODE", deploymentMode);
-}
-else
-{
-    var cache = builder.AddAzureManagedRedis("cache")
+// Configure Redis - use Azure or local
+var cache = isAzureDeployment
+    ? builder.AddAzureManagedRedis("cache")
+    : builder.AddAzureManagedRedis("cache")
         .RunAsContainer(redis => redis
             .WithDataVolume()
             .WithLifetime(ContainerLifetime.Persistent));
 
-    var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice")
-        .WithHttpHealthCheck("/health")
-        .WithExternalHttpEndpoints()
-        .WithReference(cache)
-        .WaitFor(cache)
-        .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
-        .WithEnvironment("INTEGRATION_TEST_MODE", isIntegrationTestMode ? "true" : "false")
-        .WithEnvironment("DEPLOYMENT_MODE", deploymentMode)
-        .WithCommand(
-            "open-swagger",
-            "Open Swagger",
-            context => BuildOpenPathCommandResult(context, "/swagger"),
-            new CommandOptions
-            {
-                Description = "Shows the Swagger URL for the API service.",
-                UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
-                    ? ResourceCommandState.Disabled
-                    : ResourceCommandState.Enabled
-            })
-        .WithCommand(
-            "open-scalar",
-            "Open Scalar",
-            context => BuildOpenPathCommandResult(context, "/scalar"),
-            new CommandOptions
-            {
-                Description = "Shows the Scalar URL for the API service.",
-                UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
-                    ? ResourceCommandState.Disabled
-                    : ResourceCommandState.Enabled
-            })
-        .WithCommand(
-            "open-hangfire",
-            "Open Hangfire",
-            context => BuildOpenPathCommandResult(context, "/hangfire"),
-            new CommandOptions
-            {
-                Description = "Shows the Hangfire dashboard URL for the API service.",
-                UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
-                    ? ResourceCommandState.Disabled
-                    : ResourceCommandState.Enabled
-            });
+var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice")
+    .WithHttpHealthCheck("/health")
+    .WithExternalHttpEndpoints()
+    .WithReference(cache)
+    .WaitFor(cache)
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", isAzureDeployment ? "Production" : "Development")
+    .WithEnvironment("INTEGRATION_TEST_MODE", isIntegrationTestMode ? "true" : "false")
+    .WithEnvironment("DEPLOYMENT_MODE", deploymentMode)
+    .WithCommand(
+        "open-swagger",
+        "Open Swagger",
+        context => BuildOpenPathCommandResult(context, "/swagger"),
+        new CommandOptions
+        {
+            Description = "Shows the Swagger URL for the API service.",
+            UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
+                ? ResourceCommandState.Disabled
+                : ResourceCommandState.Enabled
+        })
+    .WithCommand(
+        "open-scalar",
+        "Open Scalar",
+        context => BuildOpenPathCommandResult(context, "/scalar"),
+        new CommandOptions
+        {
+            Description = "Shows the Scalar URL for the API service.",
+            UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
+                ? ResourceCommandState.Disabled
+                : ResourceCommandState.Enabled
+        })
+    .WithCommand(
+        "open-hangfire",
+        "Open Hangfire",
+        context => BuildOpenPathCommandResult(context, "/hangfire"),
+        new CommandOptions
+        {
+            Description = "Shows the Hangfire dashboard URL for the API service.",
+            UpdateState = context => GetPublicBaseUrl(context.ResourceSnapshot) is null
+                ? ResourceCommandState.Disabled
+                : ResourceCommandState.Enabled
+        });
 
-    if (!isIntegrationTestMode)
-    {
-        var cosmos = builder.AddAzureCosmosDB("cosmos")
-            .RunAsEmulator(emulator => emulator
-                .WithDataVolume()
-                .WithLifetime(ContainerLifetime.Persistent));
-        var hangfireDb = cosmos.AddCosmosDatabase("hangfiredb");
+if (!isIntegrationTestMode)
+{
+    var cosmos = builder.AddAzureCosmosDB("cosmos")
+        .RunAsEmulator(emulator => emulator
+            .WithDataVolume()
+            .WithLifetime(ContainerLifetime.Persistent));
+    var hangfireDb = cosmos.AddCosmosDatabase("hangfiredb");
 
-        apiService = apiService
-            .WithReference(hangfireDb)
-            .WaitFor(hangfireDb);
-    }
-
-    builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
-        .WithExternalHttpEndpoints()
-        .WithHttpHealthCheck("/health")
-        .WithReference(cache)
-        .WaitFor(cache)
-        .WithReference(apiService)
-        .WaitFor(apiService)
-        .WithEnvironment("DEPLOYMENT_MODE", deploymentMode);
+    apiService = apiService
+        .WithReference(hangfireDb)
+        .WaitFor(hangfireDb);
 }
+
+builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
+    .WithExternalHttpEndpoints()
+    .WithHttpHealthCheck("/health")
+    .WithReference(cache)
+    .WaitFor(cache)
+    .WithReference(apiService)
+    .WaitFor(apiService)
+    .WithEnvironment("DEPLOYMENT_MODE", deploymentMode);
 
 builder.Build().Run();
 

@@ -2,7 +2,7 @@
 
 ## Quick Overview
 
-This repository uses **GitHub Actions** to automatically run tests, measure code coverage, and perform security scanning in a single CI pipeline on every commit and pull request.
+This repository uses **GitHub Actions** to automatically run tests, measure code coverage, and perform security scanning on every commit and pull request.
 
 ## What Happens on Every Commit
 
@@ -12,7 +12,7 @@ When you push code to `main` or `develop` branches (or create a PR):
 2. ✅ **Tests** - Runs all 113 tests automatically
 3. ✅ **Coverage** - Measures code coverage and generates reports
 4. ✅ **Quality** - Checks code formatting and style
-5. ✅ **Security** - Runs Trivy, CodeQL, and OpenSSF Scorecard
+5. ✅ **Security** - Scans for known vulnerabilities
 
 ## Viewing Results
 
@@ -78,7 +78,7 @@ The workflow includes:
 - Build job (Release mode)
 - Test execution with coverage collection
 - Code quality analysis
-- Security scanning and supply-chain analysis
+- Security scanning
 - Coverage summary generation and upload
 - Artifact retention (30 days)
 
