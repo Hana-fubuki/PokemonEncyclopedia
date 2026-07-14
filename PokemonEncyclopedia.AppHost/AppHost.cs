@@ -79,7 +79,10 @@ if (isAzureDeployment)
 }
 else
 {
-    var cache = builder.AddRedis("cache");
+    var cache = builder.AddAzureManagedRedis("cache")
+        .RunAsContainer(redis => redis
+            .WithDataVolume()
+            .WithLifetime(ContainerLifetime.Persistent));
 
     var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice")
         .WithHttpHealthCheck("/health")
