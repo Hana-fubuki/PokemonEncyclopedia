@@ -249,7 +249,7 @@ jobs:
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
-          publish_results: true
+          publish_results: false
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload scorecard results
