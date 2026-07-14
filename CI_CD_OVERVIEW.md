@@ -30,6 +30,7 @@ When you push code to `main` or `develop` branches (or create a PR):
 - Download the markdown summary from **Artifacts** section
 - View coverage percentage and trends
 - See line-by-line coverage details
+- Coverage is calculated from unit tests only, with the AppHost assembly excluded from the report; AppHost-backed integration tests run separately without coverage
 
 ### Pull Requests
 - Status checks appear on your PR

@@ -125,6 +125,24 @@ public class InfrastructureCoverageTests
     }
 
     [Fact]
+    public async Task GetPokemonByNameAsync_FallsBackToPokeApiForVariantForms()
+    {
+        var service = CreateService(new PredicateHttpMessageHandler(
+            request => request.RequestUri?.AbsolutePath.Contains("/pokemon/venusaur-mega",
+                StringComparison.OrdinalIgnoreCase) == true,
+            JsonSerializer.Serialize(new Pokemon { Id = 3, Name = "venusaur-mega" }, JsonOptions)));
+        await service.Cache.SetStringAsync("pokemon:all:v1", JsonSerializer.Serialize(new[]
+        {
+            CreatePokemon(3, "venusaur")
+        }, JsonOptions));
+
+        var result = await service.Catalog.GetPokemonByNameAsync("venusaur-mega", CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.Name.Should().Be("venusaur-mega");
+    }
+
+    [Fact]
     public async Task GetEvolutionAndLegendaryData_ReturnsCachedValues()
     {
         var service = CreateService();
@@ -306,6 +324,22 @@ public class InfrastructureCoverageTests
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(match.Content)
+            });
+        }
+    }
+
+    private sealed class PredicateHttpMessageHandler(Func<HttpRequestMessage, bool> predicate, string content)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            if (!predicate(request))
+                throw new InvalidOperationException($"Unexpected request: {request.RequestUri}");
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(content)
             });
         }
     }
