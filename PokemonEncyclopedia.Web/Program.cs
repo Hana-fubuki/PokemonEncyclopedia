@@ -8,7 +8,16 @@ builder.Services.AddApplicationInsightsTelemetry();
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
-builder.AddRedisOutputCache("cache");
+
+// In integration test mode, use in-memory output cache to avoid Docker container dependencies.
+var isIntegrationTestMode =
+    string.Equals(builder.Configuration["INTEGRATION_TEST_MODE"], "true", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(builder.Configuration["DEPLOYMENT_MODE"], "test", StringComparison.OrdinalIgnoreCase);
+if (isIntegrationTestMode)
+    builder.Services.AddOutputCache();
+else
+    builder.AddRedisOutputCache("cache");
+
 builder.Services.AddMemoryCache();
 
 // Add services to the container.

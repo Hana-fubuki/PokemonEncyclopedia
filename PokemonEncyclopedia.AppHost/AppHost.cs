@@ -79,13 +79,15 @@ if (isAzureDeployment)
 }
 else
 {
-    var cache = builder.AddRedis("cache");
+    // In integration test mode, skip the Redis container to avoid Docker dependencies in CI.
+    // The API service and Web frontend will use in-memory caches instead.
+    IResourceBuilder<RedisResource>? cache = isIntegrationTestMode
+        ? null
+        : builder.AddRedis("cache");
 
     var apiService = builder.AddProject<PokemonEncyclopedia_ApiService>("apiservice")
         .WithHttpHealthCheck("/health")
         .WithExternalHttpEndpoints()
-        .WithReference(cache)
-        .WaitFor(cache)
         .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
         .WithEnvironment("INTEGRATION_TEST_MODE", isIntegrationTestMode ? "true" : "false")
         .WithEnvironment("DEPLOYMENT_MODE", deploymentMode)
@@ -123,6 +125,9 @@ else
                     : ResourceCommandState.Enabled
             });
 
+    if (cache != null)
+        apiService = apiService.WithReference(cache).WaitFor(cache);
+
     if (!isIntegrationTestMode)
     {
         var cosmos = builder.AddAzureCosmosDB("cosmos")
@@ -136,14 +141,16 @@ else
             .WaitFor(hangfireDb);
     }
 
-    builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
+    var web = builder.AddProject<PokemonEncyclopedia_Web>("webfrontend")
         .WithExternalHttpEndpoints()
         .WithHttpHealthCheck("/health")
-        .WithReference(cache)
-        .WaitFor(cache)
         .WithReference(apiService)
         .WaitFor(apiService)
-        .WithEnvironment("DEPLOYMENT_MODE", deploymentMode);
+        .WithEnvironment("DEPLOYMENT_MODE", deploymentMode)
+        .WithEnvironment("INTEGRATION_TEST_MODE", isIntegrationTestMode ? "true" : "false");
+
+    if (cache != null)
+        web.WithReference(cache).WaitFor(cache);
 }
 
 builder.Build().Run();

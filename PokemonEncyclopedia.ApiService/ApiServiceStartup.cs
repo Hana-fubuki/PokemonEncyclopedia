@@ -30,7 +30,13 @@ public static class ApiServiceStartup
     {
         builder.Services.AddApplicationInsightsTelemetry();
         builder.AddServiceDefaults();
-        builder.AddRedisDistributedCache("cache");
+
+        // In integration test mode, use in-memory distributed cache to avoid Docker container dependencies.
+        if (isIntegrationTestMode)
+            builder.Services.AddDistributedMemoryCache();
+        else
+            builder.AddRedisDistributedCache("cache");
+
         builder.Services.AddApplicationServices();
         builder.Services.AddInfrastructureServices();
 
@@ -41,8 +47,13 @@ public static class ApiServiceStartup
         ConfigureOpenApi(builder.Services);
         ConfigureSwagger(builder.Services);
 
-        builder.Services.AddHealthChecks()
-            .AddCheck<PokemonCatalogWarmupHealthCheck>("pokemon_catalog_warmup");
+        // In integration test mode, skip the catalog warmup health check so the health endpoint
+        // returns 200 immediately (the warmup service does not run in integration test mode).
+        if (!isIntegrationTestMode)
+            builder.Services.AddHealthChecks()
+                .AddCheck<PokemonCatalogWarmupHealthCheck>("pokemon_catalog_warmup");
+        else
+            builder.Services.AddHealthChecks();
 
         if (isIntegrationTestMode)
             return;
