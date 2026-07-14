@@ -5,11 +5,11 @@ A comprehensive .NET Aspire-based web application for exploring Pokémon data wi
 ## Badges
 
 [![CI Build](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml/badge.svg?branch=main)](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/Hana-fubuki/PokemonEncyclopedia/dotnet-ci.yml?branch=main&label=CodeQL)](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml)
+[![OpenSSF Scorecard](https://img.shields.io/github/actions/workflow/status/Hana-fubuki/PokemonEncyclopedia/dotnet-ci.yml?branch=main&label=OpenSSF%20Scorecard)](https://github.com/Hana-fubuki/PokemonEncyclopedia/actions/workflows/dotnet-ci.yml)
 ![Code Coverage](https://img.shields.io/badge/Code%20Coverage-83%25-success?style=flat)
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-blue?logo=dotnet)
 ![Built with Docker](https://img.shields.io/badge/Built%20with-Docker-2496ED?logo=docker&logoColor=white)
-
-CodeQL and OpenSSF Best Practices badges need separate workflow/project setup before they can show up here.
 
 **Live Demo**: [pokepedia-dev-web.azurecontainerapps.io](https://pokepedia-dev-web.azurecontainerapps.io) (when deployed (currently not deployed as it cost money lol))
 
