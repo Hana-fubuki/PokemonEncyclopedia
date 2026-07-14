@@ -20,7 +20,7 @@ public sealed class GetPokemonSpeciesByNameHandler : IRequestHandler<GetPokemonS
 
     public async Task<PokemonSpecies?> Handle(GetPokemonSpeciesByNameQuery request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handler: fetching species {Name}", request.Name);
+        _logger.LogInformation("Handler: fetching species");
         return await _pokemonCatalogService.GetPokemonSpeciesByNameAsync(request.Name, cancellationToken)
             .ConfigureAwait(false);
     }

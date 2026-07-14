@@ -20,7 +20,7 @@ public sealed class GetMoveByNameHandler : IRequestHandler<GetMoveByNameQuery, M
 
     public async Task<Move?> Handle(GetMoveByNameQuery request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handler: fetching move {Name}", request.Name);
+        _logger.LogInformation("Handler: fetching move");
         return await _pokemonCatalogService.GetMoveByNameAsync(request.Name, cancellationToken).ConfigureAwait(false);
     }
 }

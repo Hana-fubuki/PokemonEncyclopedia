@@ -1,14 +1,12 @@
 using FluentValidation;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace PokemonEncyclopedia.ApiService.Middleware;
 
 public sealed class ApiExceptionMiddleware
 {
-    private readonly RequestDelegate _next;
     private readonly ILogger<ApiExceptionMiddleware> _logger;
+    private readonly RequestDelegate _next;
 
     public ApiExceptionMiddleware(RequestDelegate next, ILogger<ApiExceptionMiddleware> logger)
     {
@@ -34,11 +32,11 @@ public sealed class ApiExceptionMiddleware
 
     private async Task WriteValidationProblemAsync(HttpContext context, ValidationException exception)
     {
-        _logger.LogWarning(exception, "Validation failed for {Method} {Path}", context.Request.Method, context.Request.Path);
+        _logger.LogWarning(exception, "Validation failed while processing request");
 
         if (context.Response.HasStarted)
         {
-            _logger.LogWarning("Response already started for {Path}; cannot write validation payload", context.Request.Path);
+            _logger.LogWarning("Response already started; cannot write validation payload");
             throw exception;
         }
 
@@ -64,11 +62,11 @@ public sealed class ApiExceptionMiddleware
 
     private async Task WriteServerErrorAsync(HttpContext context, Exception exception)
     {
-        _logger.LogError(exception, "Unhandled exception while processing request {Method} {Path}", context.Request.Method, context.Request.Path);
+        _logger.LogError(exception, "Unhandled exception while processing request");
 
         if (context.Response.HasStarted)
         {
-            _logger.LogWarning("Response already started for {Path}; cannot write error payload", context.Request.Path);
+            _logger.LogWarning("Response already started; cannot write error payload");
             throw exception;
         }
 

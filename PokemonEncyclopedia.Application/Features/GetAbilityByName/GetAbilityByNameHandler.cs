@@ -20,7 +20,8 @@ public sealed class GetAbilityByNameHandler : IRequestHandler<GetAbilityByNameQu
 
     public async Task<Ability?> Handle(GetAbilityByNameQuery request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handler: fetching ability {Name}", request.Name);
-        return await _pokemonCatalogService.GetAbilityByNameAsync(request.Name, cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Handler: fetching ability");
+        return await _pokemonCatalogService.GetAbilityByNameAsync(request.Name, cancellationToken)
+            .ConfigureAwait(false);
     }
 }

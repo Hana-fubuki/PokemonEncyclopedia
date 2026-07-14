@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using PokeApiNet;
 using PokemonEncyclopedia.Application.Services;
+using PokemonEncyclopedia.Application.Utilities;
 
 namespace PokemonEncyclopedia.Infrastructure.Services;
 
@@ -136,8 +137,8 @@ public class PokemonCatalogService : IPokemonCatalogService
 
     public async Task<Pokemon?> GetPokemonByNameAsync(string name, CancellationToken cancellationToken)
     {
-        var normalizedName = name.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null)
             return null;
 
         var pokemon = await GetAllPokemonAsync(cancellationToken).ConfigureAwait(false);
@@ -157,8 +158,8 @@ public class PokemonCatalogService : IPokemonCatalogService
 
     public async Task<Move?> GetMoveByNameAsync(string name, CancellationToken cancellationToken)
     {
-        var normalizedName = name.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null)
             return null;
 
         var cacheKey = $"{MoveCachePrefix}{normalizedName.ToLowerInvariant()}";
@@ -169,8 +170,8 @@ public class PokemonCatalogService : IPokemonCatalogService
 
     public async Task<Ability?> GetAbilityByNameAsync(string name, CancellationToken cancellationToken)
     {
-        var normalizedName = name.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null)
             return null;
 
         var cacheKey = $"pokemon:ability:v1:{normalizedName.ToLowerInvariant()}";
@@ -181,8 +182,8 @@ public class PokemonCatalogService : IPokemonCatalogService
 
     public async Task<PokemonSpecies?> GetPokemonSpeciesByNameAsync(string name, CancellationToken cancellationToken)
     {
-        var normalizedName = name.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null)
             return null;
 
         var cacheKey = $"{SpeciesCachePrefix}{normalizedName.ToLowerInvariant()}";

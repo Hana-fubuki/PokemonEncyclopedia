@@ -22,13 +22,12 @@ public sealed class GetPokemonByGenerationHandler
     public async Task<IEnumerable<NamedApiResource<PokemonSpecies>>> Handle(GetPokemonByGenerationQuery request,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handler: fetching generation {Generation}", request.Generation);
+        _logger.LogInformation("Handler: fetching generation");
         var speciesInGeneration = await _pokemonCatalogService
             .GetPokemonSpeciesByGenerationAsync(request.Generation, cancellationToken)
             .ConfigureAwait(false);
 
-        _logger.LogInformation("Handler: found {Count} species for generation {Generation}",
-            speciesInGeneration.Count, request.Generation);
+        _logger.LogInformation("Handler: found species for generation");
 
         return speciesInGeneration;
     }

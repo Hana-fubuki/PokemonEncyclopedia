@@ -39,7 +39,7 @@ jobs:
       web_tag: ${{ steps.meta-web.outputs.tags }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -102,7 +102,7 @@ jobs:
       url: ${{ steps.deploy.outputs.web_service_url }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
       - name: Azure Login
         uses: azure/login@v2

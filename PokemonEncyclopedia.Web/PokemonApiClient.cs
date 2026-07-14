@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using PokeApiNet;
+using PokemonEncyclopedia.Application.Utilities;
 using PokemonEncyclopedia.ServiceDefaults;
 
 namespace PokemonEncyclopedia.Web;
@@ -64,8 +65,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<Pokemon?> GetPokemonAsync(string name, CancellationToken cancellationToken = default)
     {
-        var normalizedName = name.Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null) return null;
 
         var cacheKey = $"pokemon:{normalizedName}";
         if (cache.TryGetValue(cacheKey, out Pokemon? cachedPokemon))
@@ -120,8 +121,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<Move?> GetMoveAsync(string name, CancellationToken cancellationToken = default)
     {
-        var normalizedName = name.Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null) return null;
 
         var cacheKey = $"move:{normalizedName}";
         if (cache.TryGetValue(cacheKey, out Move? cachedMove))
@@ -143,8 +144,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<PokemonSpecies?> GetSpeciesAsync(string name, CancellationToken cancellationToken = default)
     {
-        var normalizedName = name.Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null) return null;
 
         var cacheKey = $"species:{normalizedName}";
         if (cache.TryGetValue(cacheKey, out PokemonSpecies? cachedSpecies))
@@ -225,8 +226,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
     public async Task<Ability?> GetAbilityAsync(string name, CancellationToken cancellationToken = default)
     {
-        var normalizedName = name.Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(normalizedName)) return null;
+        var normalizedName = NameNormalization.Normalize(name);
+        if (normalizedName is null) return null;
 
         var cacheKey = $"ability:{normalizedName}";
         if (cache.TryGetValue(cacheKey, out Ability? cachedAbility))
@@ -257,9 +258,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             return Array.Empty<Pokemon>();
         }
 
-        var normalizedName = speciesName.Trim().ToLowerInvariant();
-
-        if (string.IsNullOrWhiteSpace(normalizedName))
+        var normalizedName = NameNormalization.Normalize(speciesName);
+        if (normalizedName is null)
         {
             return Array.Empty<Pokemon>();
         }

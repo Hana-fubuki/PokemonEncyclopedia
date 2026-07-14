@@ -20,11 +20,12 @@ public sealed class GetPokemonByNameHandler : IRequestHandler<GetPokemonByNameQu
 
     public async Task<Pokemon?> Handle(GetPokemonByNameQuery request, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Handler: fetching pokemon {Name}", request.Name);
-        var pokemon = await _pokemonCatalogService.GetPokemonByNameAsync(request.Name, cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Handler: fetching pokemon");
+        var pokemon = await _pokemonCatalogService.GetPokemonByNameAsync(request.Name, cancellationToken)
+            .ConfigureAwait(false);
         if (pokemon is null)
         {
-            _logger.LogWarning("Pokemon {Name} was not found in cache", request.Name);
+            _logger.LogWarning("Pokemon was not found in cache");
             return null;
         }
 
