@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using PokeApiNet;
 using PokemonEncyclopedia.Application.Services;
 using PokemonEncyclopedia.Infrastructure.Services;
@@ -20,9 +22,9 @@ public static class InfrastructureServiceCollectionExtensions
             var httpClient = httpClientFactory.CreateClient();
             httpClient.BaseAddress = new Uri("https://pokeapi.co/api/v2/");
             httpClient.Timeout = TimeSpan.FromSeconds(300);
-            
-            var cache = sp.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>();
-            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<PokemonCatalogService>>();
+
+            var cache = sp.GetRequiredService<IDistributedCache>();
+            var logger = sp.GetRequiredService<ILogger<PokemonCatalogService>>();
             var pokeApiClient = sp.GetRequiredService<PokeApiClient>();
 
             return new PokemonCatalogService(pokeApiClient, httpClient, cache, logger);

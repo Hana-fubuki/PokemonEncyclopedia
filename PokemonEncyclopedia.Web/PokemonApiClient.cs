@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using PokeApiNet;
@@ -8,10 +7,10 @@ namespace PokemonEncyclopedia.Web;
 
 public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 {
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
     private const string AllPokemonCacheKey = "pokemon:all";
     private const string LegendaryPokemonCacheKey = "pokemon:legendary";
-        private const string AllAbilitiesCacheKey = "abilities:all";
+    private const string AllAbilitiesCacheKey = "abilities:all";
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
 
     public async Task<IReadOnlyList<Pokemon>> GetAllPokemonAsync(CancellationToken cancellationToken = default)
     {
@@ -23,14 +22,14 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
                 .ConfigureAwait(false);
             return (IReadOnlyList<Pokemon>)(response ?? Array.Empty<Pokemon>());
         }).ConfigureAwait(false) ?? Array.Empty<Pokemon>();
-        
+
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
             new KeyValuePair<string, object?>("client.operation", "all-pokemon"));
-        
+
         // Fire-and-forget: pre-cache species data for all Pokemon in the background
         _ = PrecacheSpeciesDataAsync(pokemon, cancellationToken);
-        
+
         return pokemon;
     }
 
@@ -43,9 +42,9 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
                 .Where(p => p.Species?.Name is not null)
                 .DistinctBy(p => p.Species!.Name)
                 .ToList();
-            
+
             Debug.WriteLine($"[PRECACHE] Starting pre-cache for {uniqueSpecies.Count} unique species");
-            
+
             var speciesTasks = uniqueSpecies
                 .Select(p => GetSpeciesAsync(p.Species!.Name, cancellationToken))
                 .ToList();
@@ -73,7 +72,9 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             return cachedPokemon;
 
         var sw = Stopwatch.StartNew();
-        var pokemon = await httpClient.GetFromJsonAsync<Pokemon>($"/api/PokeApi/pokemon/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+        var pokemon = await httpClient
+            .GetFromJsonAsync<Pokemon>($"/api/PokeApi/pokemon/{Uri.EscapeDataString(normalizedName)}",
+                cancellationToken)
             .ConfigureAwait(false);
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -86,7 +87,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         }
 
         var allPokemon = await GetAllPokemonAsync(cancellationToken).ConfigureAwait(false);
-        var fromList = allPokemon.FirstOrDefault(p => string.Equals(p.Name, normalizedName, StringComparison.OrdinalIgnoreCase));
+        var fromList =
+            allPokemon.FirstOrDefault(p => string.Equals(p.Name, normalizedName, StringComparison.OrdinalIgnoreCase));
         if (fromList is not null)
             cache.Set(cacheKey, fromList, CacheDuration);
 
@@ -103,7 +105,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
         var sw = Stopwatch.StartNew();
         // Call PokeAPI directly for Pokemon by ID (varieties need to be fetched by ID)
-        var pokemon = await httpClient.GetFromJsonAsync<Pokemon>($"https://pokeapi.co/api/v2/pokemon/{pokemonId}/", cancellationToken)
+        var pokemon = await httpClient
+            .GetFromJsonAsync<Pokemon>($"https://pokeapi.co/api/v2/pokemon/{pokemonId}/", cancellationToken)
             .ConfigureAwait(false);
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -125,7 +128,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             return cachedMove;
 
         var sw = Stopwatch.StartNew();
-        var move = await httpClient.GetFromJsonAsync<Move>($"/api/PokeApi/move/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+        var move = await httpClient
+            .GetFromJsonAsync<Move>($"/api/PokeApi/move/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
             .ConfigureAwait(false);
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -147,9 +151,10 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             return cachedSpecies;
 
         var sw = Stopwatch.StartNew();
-        var speciesEndpoint = string.Equals(httpClient.BaseAddress?.Host, "pokeapi.co", StringComparison.OrdinalIgnoreCase)
-            ? $"https://pokeapi.co/api/v2/pokemon-species/{Uri.EscapeDataString(normalizedName)}/"
-            : $"/api/PokeApi/species/{Uri.EscapeDataString(normalizedName)}";
+        var speciesEndpoint =
+            string.Equals(httpClient.BaseAddress?.Host, "pokeapi.co", StringComparison.OrdinalIgnoreCase)
+                ? $"https://pokeapi.co/api/v2/pokemon-species/{Uri.EscapeDataString(normalizedName)}/"
+                : $"/api/PokeApi/species/{Uri.EscapeDataString(normalizedName)}";
         var species = await httpClient.GetFromJsonAsync<PokemonSpecies>(speciesEndpoint, cancellationToken)
             .ConfigureAwait(false);
         sw.Stop();
@@ -162,7 +167,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         return species;
     }
 
-    public async Task<EvolutionChain?> GetEvolutionChainAsync(int chainId, CancellationToken cancellationToken = default)
+    public async Task<EvolutionChain?> GetEvolutionChainAsync(int chainId,
+        CancellationToken cancellationToken = default)
     {
         if (chainId <= 0) return null;
 
@@ -171,7 +177,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             return cachedChain;
 
         var sw = Stopwatch.StartNew();
-        var chain = await httpClient.GetFromJsonAsync<EvolutionChain>($"/api/PokeApi/evolution-chain/{chainId}", cancellationToken)
+        var chain = await httpClient
+            .GetFromJsonAsync<EvolutionChain>($"/api/PokeApi/evolution-chain/{chainId}", cancellationToken)
             .ConfigureAwait(false);
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -189,7 +196,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         var legendaryNames = await cache.GetOrCreateAsync(LegendaryPokemonCacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheDuration;
-            var response = await httpClient.GetFromJsonAsync<HashSet<string>>("/api/PokeApi/legendary", cancellationToken)
+            var response = await httpClient
+                .GetFromJsonAsync<HashSet<string>>("/api/PokeApi/legendary", cancellationToken)
                 .ConfigureAwait(false);
             return (IReadOnlySet<string>)(response ?? new HashSet<string>());
         }).ConfigureAwait(false) ?? new HashSet<string>();
@@ -225,7 +233,9 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             return cachedAbility;
 
         var sw = Stopwatch.StartNew();
-        var ability = await httpClient.GetFromJsonAsync<Ability>($"/api/PokeApi/ability/{Uri.EscapeDataString(normalizedName)}", cancellationToken)
+        var ability = await httpClient
+            .GetFromJsonAsync<Ability>($"/api/PokeApi/ability/{Uri.EscapeDataString(normalizedName)}",
+                cancellationToken)
             .ConfigureAwait(false);
         sw.Stop();
         Telemetry.ClientRequestDuration.Record(sw.Elapsed.TotalMilliseconds,
@@ -237,7 +247,8 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         return ability;
     }
 
-    public async Task<IReadOnlyList<Pokemon>> GetPokemonVarietiesAsync(string speciesName, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Pokemon>> GetPokemonVarietiesAsync(string speciesName,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -245,9 +256,9 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
         {
             return Array.Empty<Pokemon>();
         }
-        
+
         var normalizedName = speciesName.Trim().ToLowerInvariant();
-        
+
         if (string.IsNullOrWhiteSpace(normalizedName))
         {
             return Array.Empty<Pokemon>();
@@ -261,17 +272,17 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
 
         var sw = Stopwatch.StartNew();
         var varieties = new List<Pokemon>();
-        
+
         try
         {
             // Get species data (should already be cached from GetAllPokemonAsync pre-cache)
             var species = await GetSpeciesAsync(normalizedName, cancellationToken).ConfigureAwait(false);
-            
+
             if (species?.Varieties is not null && species.Varieties.Count > 0)
             {
                 // Fetch each variety's Pokemon data in parallel for speed
                 var varietyFetchTasks = new List<Task<Pokemon?>>();
-                
+
                 foreach (var variety in species.Varieties)
                 {
                     if (variety.Pokemon?.Url is not null)
@@ -308,7 +319,7 @@ public sealed class PokemonApiClient(HttpClient httpClient, IMemoryCache cache)
             new KeyValuePair<string, object?>("client.operation", "varieties"),
             new KeyValuePair<string, object?>("species.name", normalizedName),
             new KeyValuePair<string, object?>("varieties.count", varieties.Count));
-        
+
         if (varieties.Count > 0)
             cache.Set(cacheKey, varietiesList, CacheDuration);
 

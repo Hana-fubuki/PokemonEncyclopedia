@@ -1,7 +1,4 @@
-using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
-using Moq;
-using Xunit;
 using PokeApiNet;
 using PokemonEncyclopedia.Web;
 using PokeType = PokeApiNet.Type;
@@ -10,8 +7,8 @@ namespace PokemonEncyclopedia.Tests.Unit;
 
 public class PokemonPreCachingTests
 {
-    private readonly Mock<HttpClient> _httpClientMock = new();
     private readonly IMemoryCache _cache;
+    private readonly Mock<HttpClient> _httpClientMock = new();
 
     public PokemonPreCachingTests()
     {
@@ -29,8 +26,10 @@ public class PokemonPreCachingTests
                 Id = 1,
                 Name = "bulbasaur",
                 Species = new NamedApiResource<PokemonSpecies> { Name = "bulbasaur" },
-                Sprites = new PokemonSprites { FrontDefault = "https://raw.githubusercontent.com/PokeAPI/sprites/master/pokemon/1.png" },
-                Types = new List<PokemonType> { new PokemonType { Type = new NamedApiResource<PokeType> { Name = "grass" } } }
+                Sprites = new PokemonSprites
+                    { FrontDefault = "https://raw.githubusercontent.com/PokeAPI/sprites/master/pokemon/1.png" },
+                Types = new List<PokemonType>
+                    { new() { Type = new NamedApiResource<PokeType> { Name = "grass" } } }
             }
         };
 
@@ -52,7 +51,8 @@ public class PokemonPreCachingTests
         {
             Id = 1,
             Name = "bulbasaur",
-            Types = new List<PokemonType> { new PokemonType { Type = new NamedApiResource<PokeType> { Name = "grass" } } }
+            Types = new List<PokemonType>
+                { new() { Type = new NamedApiResource<PokeType> { Name = "grass" } } }
         };
 
         // This test verifies the precaching logic works - it uses real cache implementation
@@ -93,7 +93,7 @@ public class PokemonPreCachingTests
         var client = new PokemonApiClient(_httpClientMock.Object, _cache);
         var speciesName = "test-species";
         var cacheKey = $"varieties:{speciesName}";
-        
+
         var cachedVarieties = new List<Pokemon>
         {
             new Pokemon { Id = 1, Name = "variety1" },
@@ -123,7 +123,8 @@ public class PokemonPreCachingTests
         };
 
         // Cache with lowercase key
-        _cache.Set("varieties:test-species", (IReadOnlyList<Pokemon>)cachedVarieties.AsReadOnly(), TimeSpan.FromMinutes(10));
+        _cache.Set("varieties:test-species", (IReadOnlyList<Pokemon>)cachedVarieties.AsReadOnly(),
+            TimeSpan.FromMinutes(10));
 
         // Act - query with uppercase/whitespace
         var result = await client.GetPokemonVarietiesAsync("  TEST-SPECIES  ");
