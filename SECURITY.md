@@ -2,7 +2,11 @@
 
 ## Reporting a Vulnerability
 
-If you believe you found a security issue in this repository, please report it through GitHub Security Advisories.
+If you believe you found a security issue in this repository, please report it privately through GitHub Security Advisories:
+
+https://github.com/Hana-fubuki/PokemonEncyclopedia/security/advisories/new
+
+We aim to acknowledge reports within 3 business days and work toward a fix or disclosure plan within 30 days.
 
 Please include:
 
