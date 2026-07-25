@@ -21,6 +21,9 @@ on:
         options:
           - bicep
 
+permissions:
+  contents: read
+
 env:
   REGISTRY: ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}
   REGISTRY_USERNAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_USERNAME }}
