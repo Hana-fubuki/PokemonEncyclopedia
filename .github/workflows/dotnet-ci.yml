@@ -28,7 +28,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
       with:
-        dotnet-version: '10.0.x'
+        dotnet-version: '10.0.301'
 
     - name: Restore dependencies
       run: dotnet restore --locked-mode
@@ -156,7 +156,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
       with:
-        dotnet-version: '10.0.x'
+        dotnet-version: '10.0.301'
 
     - name: Install dotnet tools
       run: |
@@ -214,7 +214,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.301'
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9
