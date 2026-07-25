@@ -99,7 +99,7 @@ jobs:
         verbose: true
 
     - name: Publish test results
-      uses: EnricoMi/publish-unit-test-result-action@b3f8796819acf652cecbf27a64fa9ac8d7e137ee
+      uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3
       if: always() && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       with:
         files: './coverage/**/*.trx'
