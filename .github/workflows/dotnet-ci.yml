@@ -65,7 +65,7 @@ jobs:
 
     - name: Code Coverage Summary
       if: always()
-      uses: irongut/CodeCoverageSummary@v1.3.0
+      uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95
       with:
         filename: './coverage/coverage.cobertura.xml'
         badge: true
@@ -87,7 +87,7 @@ jobs:
         cp ./code-coverage-results.md ./coverage-report/summary.md
 
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@04b047e8bb82a0c002c8312c1c880fbc6a999d45
       with:
         files: './coverage/unit/**/coverage.cobertura.xml'
         flags: unittests
@@ -96,7 +96,7 @@ jobs:
         verbose: true
 
     - name: Publish test results
-      uses: EnricoMi/publish-unit-test-result-action@v2
+      uses: EnricoMi/publish-unit-test-result-action@b3f8796819acf652cecbf27a64fa9ac8d7e137ee
       if: always() && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       with:
         files: './coverage/**/*.trx'
@@ -160,7 +160,7 @@ jobs:
 
     - name: Install dotnet tools
       run: |
-        dotnet tool install -g dotnet-format
+        dotnet tool install -g dotnet-format --version 5.1.250801
 
     - name: Check code formatting
       run: |
@@ -185,7 +185,7 @@ jobs:
       uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
 
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8
       with:
         scan-type: 'fs'
         scan-ref: '.'
@@ -245,7 +245,7 @@ jobs:
           persist-credentials: false
 
       - name: Run OpenSSF Scorecard
-        uses: ossf/scorecard-action@v2.4.1
+        uses: ossf/scorecard-action@ea651e62978af7915d09fe2e282747c798bf2dab
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
