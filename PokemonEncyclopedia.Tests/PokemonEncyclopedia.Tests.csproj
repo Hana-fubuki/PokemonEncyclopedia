@@ -11,7 +11,7 @@
 
     <ItemGroup>
         <PackageReference Include="Aspire.Hosting.Testing" Version="13.4.6"/>
-        <PackageReference Include="bunit" Version="2.7.2"/>
+        <PackageReference Include="bunit" Version="2.8.6"/>
         <PackageReference Include="coverlet.collector" Version="10.0.1"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
         <PackageReference Include="xunit" Version="2.9.3"/>
@@ -19,7 +19,7 @@
         <PackageReference Include="Moq" Version="4.20.70"/>
         <PackageReference Include="FluentAssertions" Version="8.10.0"/>
         <PackageReference Include="FsCheck.Xunit" Version="3.3.3"/>
-        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10"/>
     </ItemGroup>
 
     <ItemGroup>
