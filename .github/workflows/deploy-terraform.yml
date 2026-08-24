@@ -55,7 +55,7 @@ jobs:
 
       - name: Generate Docker metadata (API)
         id: meta-api
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
         with:
           images: ${{ env.REGISTRY }}/pokemonencyclopedia-api
           tags: |
@@ -66,7 +66,7 @@ jobs:
 
       - name: Generate Docker metadata (Web)
         id: meta-web
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
         with:
           images: ${{ env.REGISTRY }}/pokemonencyclopedia-web
           tags: |
