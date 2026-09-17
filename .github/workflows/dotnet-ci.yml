@@ -48,8 +48,9 @@ jobs:
           --logger "trx;LogFileName=test-results.trx" \
           --collect:"XPlat Code Coverage" \
           --results-directory ./coverage/unit \
-          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
-          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[PokemonEncyclopedia.AppHost]*"
+          -- \
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[PokemonEncyclopedia.AppHost]*"
 
     - name: Run integration tests (no coverage)
       run: |
@@ -197,7 +198,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload Trivy results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
@@ -220,7 +221,7 @@ jobs:
           dotnet-version: '10.0.302'
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: csharp
           build-mode: none
@@ -232,7 +233,7 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
 
   scorecard:
     runs-on: ubuntu-latest
