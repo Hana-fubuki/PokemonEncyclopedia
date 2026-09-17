@@ -50,7 +50,8 @@ jobs:
           --results-directory ./coverage/unit \
           -- \
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
-          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[PokemonEncyclopedia.AppHost]*"
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[PokemonEncyclopedia.AppHost]*" \
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile="**/*.generated.cs"
 
     - name: Run integration tests (no coverage)
       run: |
