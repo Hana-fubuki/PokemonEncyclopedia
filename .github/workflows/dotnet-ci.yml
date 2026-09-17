@@ -108,7 +108,7 @@ jobs:
 
     - name: Comment PR with coverage
       if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+      uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');
@@ -197,7 +197,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload Trivy results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
@@ -220,7 +220,7 @@ jobs:
           dotnet-version: '10.0.302'
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9
+        uses: github/codeql-action/init@v3
         with:
           languages: csharp
           build-mode: none
@@ -232,7 +232,7 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9
+        uses: github/codeql-action/analyze@v3
 
   scorecard:
     runs-on: ubuntu-latest
