@@ -6,6 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <UserSecretsId>2120a906-5f7f-45c7-9661-f9fdf8b13009</UserSecretsId>
+        <NETCoreSdkRuntimeIdentifier>linux-x64</NETCoreSdkRuntimeIdentifier>
     </PropertyGroup>
 
     <ItemGroup>
