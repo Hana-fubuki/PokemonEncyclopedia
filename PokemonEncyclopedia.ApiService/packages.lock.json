@@ -4,17 +4,17 @@
     "net10.0": {
       "a2n.Hangfire.Dashboard": {
         "type": "Direct",
-        "requested": "[2.5.0, )",
-        "resolved": "2.5.0",
-        "contentHash": "2SCLKRZFQ3LeWTG03BLpKTuJD+1FqygsZHjyiPq+iuDPmm/GRN8uxnGxrF4ocaPF9zzEaqkanNC0VLzjU50LMw==",
+        "requested": "[2.5.7, )",
+        "resolved": "2.5.7",
+        "contentHash": "I/lRlAbsOmbG1YYEHh/kE09O1K/3XSw52l51lm9R0npNGSy4lu1jRuCGkekLkxDfLTHwC41lw1501E4QccV/Hw==",
         "dependencies": {
           "Cronos": "0.11.0",
-          "Hangfire.AspNetCore": "1.8.23",
-          "Hangfire.Core": "1.8.23",
-          "Microsoft.AspNetCore.SignalR.Client": "10.0.9",
+          "Hangfire.AspNetCore": "1.8.25",
+          "Hangfire.Core": "1.8.25",
+          "Microsoft.AspNetCore.SignalR.Client": "10.0.12",
           "Newtonsoft.Json": "13.0.4",
-          "a2n.Hangfire.Console": "2.5.0",
-          "a2n.Hangfire.Tags": "2.5.0"
+          "a2n.Hangfire.Console": "2.5.7",
+          "a2n.Hangfire.Tags": "2.5.7"
         }
       },
       "Aspire.StackExchange.Redis.DistributedCaching": {
@@ -34,11 +34,11 @@
       },
       "Hangfire.AspNetCore": {
         "type": "Direct",
-        "requested": "[1.8.24, )",
-        "resolved": "1.8.24",
-        "contentHash": "K7eugZIFcBgGI+lI6Z3H9a7Ax6ZkauWjOUJxE5xawu5UQmH+WS7gXBlar1zGUqLTWqWxNAMj+K95OE0zvAtHNg==",
+        "requested": "[1.8.25, )",
+        "resolved": "1.8.25",
+        "contentHash": "IqklPyZDacfrCM6I9vpoTd9n14AvP5tepgR/IfKTUlPzGihLzey9jpL7PTKguJ3CPAA12qz3WCDUfIJ9IsCLQw==",
         "dependencies": {
-          "Hangfire.NetCore": "[1.8.24]"
+          "Hangfire.NetCore": "[1.8.25]"
         }
       },
       "Hangfire.AzureCosmosDB": {
@@ -125,19 +125,19 @@
       },
       "a2n.Hangfire.Console": {
         "type": "Transitive",
-        "resolved": "2.5.0",
-        "contentHash": "DPrjJeU1mznDKzpjiXuBIfnhHofthj8q0L0chjRH74nP7LS/PSs5NcOByE9Y16WfLGhprvnZlzd69LF/8NYo/g==",
+        "resolved": "2.5.7",
+        "contentHash": "AJ/RxYzkpLiSpwqHTvdz3eZsu9AntHqhqB9KbHSn2Iu0qdk6R8Z182pKfCTe7ltCYQwGsapgbj78/wNEY2beRw==",
         "dependencies": {
-          "Hangfire.Core": "1.8.23",
+          "Hangfire.Core": "1.8.25",
           "Newtonsoft.Json": "13.0.4"
         }
       },
       "a2n.Hangfire.Tags": {
         "type": "Transitive",
-        "resolved": "2.5.0",
-        "contentHash": "/s3ie6safWUy/h4w0CA0HOMmlYp35zHpKlYE0AwymzrCRGwv84Sd7l90P/YZTYsOOpBBlTnNIozvd+cUR/L1Dw==",
+        "resolved": "2.5.7",
+        "contentHash": "knIrFjMuk2tyl1G0OAEDl/0/yQRtg8NLJCBisvrdfwRvWbHLBcTXEEor3O8QYkbEkiCZP7lxXFV9+D/kzXVeFQ==",
         "dependencies": {
-          "Hangfire.Core": "1.8.23",
+          "Hangfire.Core": "1.8.25",
           "Newtonsoft.Json": "13.0.4"
         }
       },
@@ -203,18 +203,18 @@
       },
       "Hangfire.Core": {
         "type": "Transitive",
-        "resolved": "1.8.24",
-        "contentHash": "XhiE55abcXXw4jEe0EClnU1fainkfi7ZVINbcCB+Se6ZatfVAglLsvNc6wtTMq5aZz0tv2DuW+U5lx1R0DcWOg==",
+        "resolved": "1.8.25",
+        "contentHash": "BxzXlHwXNrGPHJ7YfAVfeiXC+BHd6uPoyyfV+9bCJVPPGs4z0EQCW1X44Og/IUFM81ENCqAFP1r2rOkQhm4ydA==",
         "dependencies": {
           "Newtonsoft.Json": "11.0.1"
         }
       },
       "Hangfire.NetCore": {
         "type": "Transitive",
-        "resolved": "1.8.24",
-        "contentHash": "iKRSO7gzMq4KhI+px98OtRubI5FaDHJgHvhLqlILvsuCPVFraTdVWdRgwjIS4bIyahl/3RaiGhFOqlpwgU724Q==",
+        "resolved": "1.8.25",
+        "contentHash": "ZfI7gwr7n70r635VS9aKsWSzOodY6U0bSIG0jDrqd5ODRLKvc+e5aXXGCnWHWzjvagvlwtUcRGG/lD0/3C7chA==",
         "dependencies": {
-          "Hangfire.Core": "[1.8.24]"
+          "Hangfire.Core": "[1.8.25]"
         }
       },
       "Humanizer.Core": {
@@ -261,22 +261,22 @@
       },
       "Microsoft.AspNetCore.Http.Connections.Client": {
         "type": "Transitive",
-        "resolved": "10.0.9",
-        "contentHash": "nE86FWSCy1Y11ks6uf199AtVMjwqKmYN061SEH1pGkXHDDlyZoBbRnM1NmNPZJXCSnS6xxv2oIEADmnWlorEBQ=="
+        "resolved": "10.0.12",
+        "contentHash": "HEO648tD8OyX6aUNQwJSl1eKQk5eQChuHTqpybv2ep7/518/M27yeDDFxAh2M/LW+22tbbooao6raNEHm7lBhA=="
       },
       "Microsoft.AspNetCore.SignalR.Client": {
         "type": "Transitive",
-        "resolved": "10.0.9",
-        "contentHash": "5qXD0QIuwrdBffdmnWZ9+E/+SEkANhjy93zVvYgNubTEN55WWfFHFtJWnq2t3kJCqzfsfVvrvlnjMNx4sFejJg==",
+        "resolved": "10.0.12",
+        "contentHash": "p5EFZrp20HlS1MbYkreyhHy4nXeq/LrXVLWbQLBuAz2eFCdSnKfoNVlxZYbFoEjzJxa68CYdEFe9ObCaYTUP8Q==",
         "dependencies": {
-          "Microsoft.AspNetCore.Http.Connections.Client": "10.0.9",
-          "Microsoft.AspNetCore.SignalR.Client.Core": "10.0.9"
+          "Microsoft.AspNetCore.Http.Connections.Client": "10.0.12",
+          "Microsoft.AspNetCore.SignalR.Client.Core": "10.0.12"
         }
       },
       "Microsoft.AspNetCore.SignalR.Client.Core": {
         "type": "Transitive",
-        "resolved": "10.0.9",
-        "contentHash": "LxE3rdPQXV16eHCgcKh9E2itJAJQUxrY0pJ6AdOegdU+5sva1guODze9ziNaPQ0NwD6AEd6n8GROpmaLvjuChg=="
+        "resolved": "10.0.12",
+        "contentHash": "+kCyWCOvZteBkqfbpmoi+ejIR1XVJOY4ydDNYrYt1WdXv/ruJS4WjDfCizGZ5lvn/OmRdMuVdh8opopbNveQcw=="
       },
       "Microsoft.Azure.Cosmos": {
         "type": "Transitive",
