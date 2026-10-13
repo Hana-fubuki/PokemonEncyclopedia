@@ -69,11 +69,7 @@ on:
 ```
 
 **Change .NET version:**
-```yaml
-- uses: actions/setup-dotnet@v5
-  with:
-    dotnet-version: '10.0.x'
-```
+Update `sdk.version` in `global.json`, then run `dotnet restore --force-evaluate` and commit the updated lock files. CI installs and selects that exact SDK.
 
 ## 🔐 For Private Repos
 

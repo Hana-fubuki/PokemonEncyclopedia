@@ -107,10 +107,14 @@ The workflow includes:
 ## Troubleshooting
 
 ### Tests Fail in CI but Pass Locally
-- Ensure .NET 10.0 is installed locally
+- Install the exact .NET SDK version specified in `global.json`; CI uses the same file to install and select the SDK
 - Run `dotnet restore` and `dotnet build`
 - Check for environment-specific code
 - Verify no hardcoded paths
+
+### Locked Restore Fails with NU1004
+- `global.json` disables SDK roll-forward so newer preinstalled runner SDKs cannot change implicit ASP.NET package versions
+- When intentionally updating the SDK or packages, regenerate `packages.lock.json` files with `dotnet restore --force-evaluate` and commit them together with the version change
 
 ### Coverage Report Not Generated
 - Check `coverlet.collector` package is installed
@@ -147,12 +151,7 @@ git commit -m "docs: Update README [skip ci]"
 ```
 
 ### Change .NET Version
-```yaml
-- name: Setup .NET
-  uses: actions/setup-dotnet@v5
-  with:
-    dotnet-version: '10.0.x'
-```
+Update `sdk.version` in `global.json`, then regenerate the package lock files. The CI setup steps read `global.json` directly.
 
 ## Artifacts
 
