@@ -2163,6 +2163,7 @@
           "Scalar.AspNetCore": "[2.16.10, )",
           "Swashbuckle.AspNetCore": "[10.2.3, )",
           "Swashbuckle.AspNetCore.Annotations": "[10.2.3, )",
+          "System.Drawing.Common": "[4.7.2, )",
           "a2n.Hangfire.Dashboard": "[2.5.0, )"
         }
       },
